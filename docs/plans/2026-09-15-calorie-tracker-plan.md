@@ -3384,7 +3384,7 @@ jobs:
         env:
           ANDROID_KEYSTORE_FILE: ${{ runner.temp }}/upload.keystore
           ANDROID_KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
-          ANDROID_KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
+          ANDROID_KEY_ALIAS: upload      # not a secret; masking it would hide the word in every log line
           ANDROID_KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}
           OFF_APP_PASSWORD: ${{ secrets.OFF_APP_PASSWORD }}     # read by app.config.ts when the JS bundle is built
         run: ./gradlew bundleRelease assembleRelease --no-daemon
@@ -3418,7 +3418,7 @@ This is a checklist, not code. Each item is something only the account owner can
    base64 -i upload.keystore | pbcopy
    ```
    Store the keystore file and both passwords in your password manager. Never commit it; `.gitignore` already excludes `*.keystore`.
-2. **GitHub secrets** on the `calorie-tracker` repo, Settings, Secrets and variables, Actions: `ANDROID_KEYSTORE_BASE64` (clipboard from above), `ANDROID_KEYSTORE_PASSWORD`, `ANDROID_KEY_ALIAS` (`upload`), `ANDROID_KEY_PASSWORD`. Also create an Open Food Facts account named `codejet-calorie-tracker` for the app's contributions and store its password as `OFF_APP_PASSWORD`. That password ships inside release builds, which Open Food Facts expects for app accounts, so the account must hold nothing else.
+2. **GitHub secrets** on the `calorie-tracker` repo, Settings, Secrets and variables, Actions: `ANDROID_KEYSTORE_BASE64` (clipboard from above), `ANDROID_KEYSTORE_PASSWORD`, `ANDROID_KEY_PASSWORD`. The alias is the literal `upload` in the workflow, not a secret. Also create an Open Food Facts account named `codejet-calorie-tracker` for the app's contributions and store its password as `OFF_APP_PASSWORD`. That password ships inside release builds, which Open Food Facts expects for app accounts, so the account must hold nothing else.
 3. **Google Play Console.** Pay the one-time fee, create the app with package `com.codejetnet.calorietracker`. Play App Signing is on by default for new apps: Google holds the app signing key and your keystore is only the upload key, which can be reset if it ever leaks.
 4. **First upload is manual.** The Play API refuses to create the first release. Build once locally with the release keystore:
    ```bash
