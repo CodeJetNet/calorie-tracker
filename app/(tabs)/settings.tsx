@@ -1,6 +1,6 @@
 import * as DocumentPicker from 'expo-document-picker';
 import * as FS from 'expo-file-system/legacy';
-import { useFocusEffect } from 'expo-router';
+import { useFocusEffect, useRouter } from 'expo-router';
 import * as Sharing from 'expo-sharing';
 import { useCallback, useEffect, useState } from 'react';
 import { Button, ScrollView, Switch, Text, TextInput, View } from 'react-native';
@@ -40,6 +40,7 @@ const describe = (r: ImportResult) =>
 
 export default function Settings() {
   const { diary } = useDb();
+  const router = useRouter();
   const up = useFoodsUpdate();
   const [goal, setGoal] = useState<Record<string, string>>({});
   const [more, setMore] = useState(false);
@@ -243,6 +244,9 @@ export default function Settings() {
           {healthDenied && <Text style={{ color: '#c33' }}>Permission not granted. Health Connect may need to be installed or updated.</Text>}
         </>
       )}
+
+      <Text style={h}>About</Text>
+      <Button title="About this app" onPress={() => router.push('/about')} />
     </ScrollView>
   );
 }
