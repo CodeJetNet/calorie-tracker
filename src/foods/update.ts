@@ -23,7 +23,7 @@ export function checkDue(lastMs: number | null, nowMs: number, rand: number): bo
   return lastMs === null || nowMs - lastMs >= (20 + 8 * rand) * 3_600_000;
 }
 
-async function firstOk<T>(urls: string[], get: (url: string) => Promise<T>): Promise<T> {
+export async function firstOk<T>(urls: string[], get: (url: string) => Promise<T>): Promise<T> {
   let err: unknown;
   for (const u of urls) { try { return await get(u); } catch (e) { err = e; } }
   throw err;
@@ -45,37 +45,43 @@ export async function installFoods(f: ManifestFile, onProgress?: (fraction: numb
   const zip = `${FS.cacheDirectory}foods.zip`;
   const dir = `${FS.cacheDirectory}foods-unzip/`;
   await FS.deleteAsync(dir, { idempotent: true });
-  await firstOk([f.url, f.mirror], url => download(url, zip, f.bytes, onProgress));
-  await unzip(zip, dir);
-  const inner = `${dir}${f.name.replace(/\.zip$/, '.db')}`;
-  const info = await FS.getInfoAsync(inner, { md5: true });
-  if (!info.exists || info.md5 !== f.md5) throw new Error('checksum mismatch');
-  await FS.makeDirectoryAsync(FOODS_DIR, { intermediates: true });
-  await FS.deleteAsync(FOODS_DIR + FOODS_FILE, { idempotent: true });
-  await FS.moveAsync({ from: inner, to: FOODS_DIR + FOODS_FILE });
-  await FS.deleteAsync(zip, { idempotent: true });
-  await FS.deleteAsync(dir, { idempotent: true });
+  const done = await firstOk([f.url, f.mirror], url => download(url, zip, f.bytes, onProgress));
+  if (!done) throw new Error(PAUSED);
+  try {
+    await unzip(zip, dir);
+    const inner = `${dir}${f.name.replace(/\.zip$/, '.db')}`;
+    const info = await FS.getInfoAsync(inner, { md5: true });
+    if (!info.exists || info.md5 !== f.md5) throw new Error('checksum mismatch');
+    await FS.makeDirectoryAsync(FOODS_DIR, { intermediates: true });
+    await FS.deleteAsync(FOODS_DIR + FOODS_FILE, { idempotent: true });
+    await FS.moveAsync({ from: inner, to: FOODS_DIR + FOODS_FILE });
+  } finally {
+    await FS.deleteAsync(zip, { idempotent: true });
+    await FS.deleteAsync(dir, { idempotent: true });
+  }
 }
 
 /**
  * Resumes across interruptions and app restarts. Only `pauseAsync` yields a resume token, so when the app
- * leaves the foreground the download is paused and the token saved; `downloadAsync` then resolves undefined,
- * which surfaces as "paused", and the next tap on Download resumes from the token when the URL matches.
+ * goes to background the download is paused and the token saved; `downloadAsync` then resolves undefined, which
+ * returns false so `installFoods` surfaces it as PAUSED, and the next tap on Download resumes from the token when the URL matches.
+ * Only 'background' pauses: iOS fires 'inactive' for Control Center and the notification shade.
  */
 const RESUME = `${FS.cacheDirectory}foods.resume.json`;
 export const PAUSED = 'paused';
-async function download(url: string, to: string, bytes: number, onProgress?: (fraction: number) => void): Promise<void> {
+async function download(url: string, to: string, bytes: number, onProgress?: (fraction: number) => void): Promise<boolean> {
   let resumeData: string | undefined;
   try { const s = JSON.parse(await FS.readAsStringAsync(RESUME)); if (s.url === url) resumeData = s.resumeData; } catch { /* nothing to resume */ }
   const dl = FS.createDownloadResumable(url, to, {}, p => onProgress?.(p.totalBytesWritten / bytes), resumeData);
   const sub = AppState.addEventListener('change', async s => {
-    if (s !== 'active') { await dl.pauseAsync(); await FS.writeAsStringAsync(RESUME, JSON.stringify(dl.savable())); }
+    if (s === 'background') { await dl.pauseAsync(); await FS.writeAsStringAsync(RESUME, JSON.stringify(dl.savable())); }
   });
   try {
     const r = resumeData ? await dl.resumeAsync() : await dl.downloadAsync();
-    if (!r) throw new Error(PAUSED);
+    if (!r) return false;
     if (r.status !== 200 && r.status !== 206) throw new Error(`download ${r.status}`);
     await FS.deleteAsync(RESUME, { idempotent: true });
+    return true;
   } finally { sub.remove(); }
 }
 

@@ -40,7 +40,6 @@
           }
         }
       ],
-      "expo-asset",
       "./plugins/withBackupRules"
     ],
     "scheme": "calorietracker"

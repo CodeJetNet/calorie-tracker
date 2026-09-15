@@ -25,7 +25,7 @@ function toFood(r: Row): Food {
 }
 
 export async function byBarcode(db: Db, gtin13: string): Promise<Food | null> {
-  const [r] = await db.all(`${SELECT} WHERE barcode = ? LIMIT 1`, [gtin13]);
+  const [r] = await db.all(`${SELECT} WHERE barcode = ? ORDER BY source LIMIT 1`, [gtin13]);
   return r ? toFood(r) : null;
 }
 
