@@ -22,12 +22,14 @@ export default function Today() {
   const [deleted, setDeleted] = useState<Entry | null>(null);
   const [md5, setMd5] = useState<string | null>(null);        // installed file; null while on the bundled starter
   const [latest, setLatest] = useState<string | null>(null);  // the manifest's file for the chosen country
+  const [backupPending, setBackupPending] = useState(false);
 
   const load = useCallback(async () => {
     setEntries(await entriesForDay(diary, day));
     setTargets(await goals(diary));
     setMeals(await getJson<string[]>(diary, 'meals', DEFAULT_MEALS));
     setMd5(await getSetting(diary, 'foods_md5'));
+    setBackupPending((await getSetting(diary, 'backup_pending')) === '1');
   }, [diary, day]);
   useFocusEffect(useCallback(() => { load(); }, [load]));
 
@@ -78,6 +80,11 @@ export default function Today() {
       {(starter || newer) && (
         <Pressable onPress={() => router.push('/settings')} style={{ padding: 8, borderRadius: 8, backgroundColor: '#fff3cd' }}>
           <Text>{starter ? 'Download the full food database' : 'New food database available'}</Text>
+        </Pressable>
+      )}
+      {backupPending && (
+        <Pressable onPress={() => router.push('/settings')} style={{ padding: 8, borderRadius: 8, backgroundColor: '#f8d7da' }}>
+          <Text>Backup failed. Retry from Settings.</Text>
         </Pressable>
       )}
 

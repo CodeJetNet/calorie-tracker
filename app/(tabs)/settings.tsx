@@ -1,6 +1,11 @@
 import { useFocusEffect } from 'expo-router';
 import { useCallback, useEffect, useState } from 'react';
 import { Button, ScrollView, Switch, Text, TextInput, View } from 'react-native';
+import { createDocument } from '../../src/backup/documents';
+import { renderReport } from '../../src/backup/report';
+import { runBackup } from '../../src/backup/scheduler';
+import { exportDiary } from '../../src/backup/serialize';
+import { addDays, today } from '../../src/dates';
 import { useDb } from '../../src/db/provider';
 import { DEFAULT_MEALS, getJson, getSetting, goals, setSetting } from '../../src/diary/settings';
 import { fetchManifest } from '../../src/foods/update';
@@ -23,9 +28,13 @@ export default function Settings() {
   const [countries, setCountries] = useState(COUNTRIES);
   const [installed, setInstalled] = useState<{ md5: string | null; builtAt: string | null }>({ md5: null, builtAt: null });
   const [off, setOff] = useState(false);
+  const [backup, setBackup] = useState<{ lastOk: string | null; pending: boolean }>({ lastOk: null, pending: false });
 
   const loadInstalled = useCallback(async () => {
     setInstalled({ md5: await getSetting(diary, 'foods_md5'), builtAt: await getSetting(diary, 'foods_built_at') });
+  }, [diary]);
+  const loadBackup = useCallback(async () => {
+    setBackup({ lastOk: await getSetting(diary, 'backup_last_ok'), pending: (await getSetting(diary, 'backup_pending')) === '1' });
   }, [diary]);
   useEffect(() => {   // country picker from the manifest; the fallback list stays when offline
     fetchManifest().then(m => setCountries([...new Set(m.files.map(f => f.country).filter(c => c !== 'starter'))])).catch(() => {});
@@ -37,8 +46,9 @@ export default function Settings() {
       setCountry((await getSetting(diary, 'foods_country')) ?? 'US');
       setOff((await getSetting(diary, 'off_lookup')) === '1');
       await loadInstalled();
+      await loadBackup();
     })();
-  }, [diary, loadInstalled]));
+  }, [diary, loadInstalled, loadBackup]));
 
   const saveGoals = async () => {   // only overrides are stored, so a later change to the defaults still reaches everyone
     const over: Nutrients = {};
@@ -53,6 +63,20 @@ export default function Settings() {
   };
   const pickCountry = async (c: string) => { setCountry(c); await setSetting(diary, 'foods_country', c, false); };
   const download = async () => { await up.download(); await loadInstalled(); };
+
+  const setUpBackup = async () => {   // two picked files, not a folder: Drive has no folder grant
+    const file = await exportDiary(diary), t = today();
+    const report = await createDocument('report.html', 'text/html', renderReport(file, addDays(t, -29), t));
+    const json = report && (await createDocument('diary.json', 'application/json', JSON.stringify(file)));
+    if (!report || !json) return;   // cancelled: store nothing, status stays "Backup not set up"
+    await setSetting(diary, 'backup_uri_report', report, false);
+    await setSetting(diary, 'backup_uri_diary', json, false);
+    await setSetting(diary, 'backup_dirty', '0', false);
+    await setSetting(diary, 'backup_pending', '0', false);
+    await setSetting(diary, 'backup_last_ok', new Date().toISOString(), false);
+    await loadBackup();
+  };
+  const retryBackup = async () => { await runBackup(diary, true); await loadBackup(); };
 
   const goalInput = (id: string) => {
     const n = BY_ID[id];
@@ -103,6 +127,15 @@ export default function Settings() {
         <Switch value={off} onValueChange={async v => { setOff(v); await setSetting(diary, 'off_lookup', v ? '1' : '0'); }} />
       </View>
       <Text style={{ color: '#666' }}>Sends only the barcode. When off, the Scan screen asks each time.</Text>
+
+      <Text style={h}>Backup</Text>
+      <Button title="Set up backup" onPress={setUpBackup} />
+      {backup.pending ? (
+        <View style={row}><Text style={{ color: '#c33' }}>Backup failed</Text><Button title="Retry" onPress={retryBackup} /></View>
+      ) : (
+        <Text>{backup.lastOk ? `Last backup: ${new Date(backup.lastOk).toLocaleString()}` : 'Backup not set up'}</Text>
+      )}
+      <Text style={{ color: '#666' }}>To share with a coach, share the folder that holds report.html from your cloud app. They can open it in any browser; it refreshes every time you log.</Text>
     </ScrollView>
   );
 }
