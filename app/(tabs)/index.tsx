@@ -1,10 +1,11 @@
 import { useFocusEffect, useRouter } from 'expo-router';
-import { useCallback, useState } from 'react';
-import { Button, Pressable, ScrollView, Text, View } from 'react-native';
+import { useCallback, useEffect, useState } from 'react';
+import { AppState, Button, Pressable, ScrollView, Text, View } from 'react-native';
 import { useDb } from '../../src/db/provider';
 import { addDays, today } from '../../src/dates';
 import { addEntry, deleteEntry, entriesForDay, type Entry } from '../../src/diary/entries';
-import { DEFAULT_MEALS, getJson, goals } from '../../src/diary/settings';
+import { DEFAULT_MEALS, getJson, getSetting, goals, setSetting } from '../../src/diary/settings';
+import { checkDue, fetchManifest, pickFile, SUPPORTED_SCHEMA } from '../../src/foods/update';
 import { PANEL, sum, type Nutrients } from '../../src/nutrients';
 import { fmt, NutrientBar } from '../../src/ui/NutrientBar';
 
@@ -20,13 +21,32 @@ export default function Today() {
   const [meals, setMeals] = useState(DEFAULT_MEALS);
   const [more, setMore] = useState(false);
   const [deleted, setDeleted] = useState<Entry | null>(null);
+  const [starter, setStarter] = useState(false);   // only the bundled generic foods are installed
+  const [newer, setNewer] = useState(false);       // the manifest lists a different file than the installed one
 
   const load = useCallback(async () => {
     setEntries(await entriesForDay(diary, day));
     setTargets(await goals(diary));
     setMeals(await getJson<string[]>(diary, 'meals', DEFAULT_MEALS));
+    setStarter(!(await getSetting(diary, 'foods_md5')));
   }, [diary, day]);
   useFocusEffect(useCallback(() => { load(); }, [load]));
+
+  useEffect(() => {   // on launch and foreground: once a day, ask the manifest whether a newer file exists. Nothing downloads without a tap.
+    const check = async () => {
+      const last = await getSetting(diary, 'foods_checked_at');
+      if (!checkDue(last ? Number(last) : null, Date.now(), Math.random())) return;
+      try {
+        const f = pickFile(await fetchManifest(), (await getSetting(diary, 'foods_country')) ?? 'US', SUPPORTED_SCHEMA);
+        await setSetting(diary, 'foods_checked_at', String(Date.now()), false);
+        const md5 = await getSetting(diary, 'foods_md5');
+        if (f && md5 && f.md5 !== md5) setNewer(true);
+      } catch { /* offline: try again next foreground */ }
+    };
+    check();
+    const sub = AppState.addEventListener('change', s => { if (s === 'active') check(); });
+    return () => sub.remove();
+  }, [diary]);
 
   const totals = sum(entries.map(e => e.nutrients));
   const burned: number | null = null;   // Milestone 5
@@ -56,6 +76,11 @@ export default function Today() {
         <Button title=">" onPress={() => setDay(addDays(day, 1))} />
         <Button title="Weight" onPress={() => router.push('/weight')} />
       </View>
+      {(starter || newer) && (
+        <Pressable onPress={() => router.push('/settings')} style={{ padding: 8, borderRadius: 8, backgroundColor: '#fff3cd' }}>
+          <Text>{starter ? 'Download the full food database' : 'New food database available'}</Text>
+        </Pressable>
+      )}
 
       <View style={{ padding: 12, borderRadius: 8, backgroundColor: '#f2f2f2' }}>
         {MAIN.map(id => <NutrientBar key={id} id={id} value={totals[id] ?? 0} goal={targets[id]} />)}
