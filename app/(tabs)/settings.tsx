@@ -98,18 +98,24 @@ export default function Settings() {
   const download = async () => { await up.download(); await loadInstalled(); };
 
   const setUpBackup = async () => {   // two picked files, not a folder: Drive has no folder grant
-    const file = await exportDiary(diary), t = today();
-    const report = await createDocument('report.html', 'text/html', renderReport(file, addDays(t, -29), t));
-    if (!report) return;   // cancelled: store nothing, status stays "Backup not set up"
-    const json = await createDocument('diary.json', 'application/json', JSON.stringify(file));
-    if (!json) { await FS.StorageAccessFramework.deleteAsync(report).catch(() => {}); return; }   // no orphan report.html
-    await setSetting(diary, 'backup_uri_report', report, false);
-    await setSetting(diary, 'backup_uri_diary', json, false);
-    await setSetting(diary, 'backup_dirty', '0', false);
-    await setSetting(diary, 'backup_pending', '0', false);
-    await setSetting(diary, 'backup_last_ok', new Date().toISOString(), false);
     setBackupMsg('');
-    await loadBackup();
+    const file = await exportDiary(diary), t = today();
+    let report: string | null = null;
+    try {
+      report = await createDocument('report.html', 'text/html', renderReport(file, addDays(t, -29), t));
+      if (!report) return;   // cancelled: store nothing, status stays "Backup not set up"
+      const json = await createDocument('diary.json', 'application/json', JSON.stringify(file));
+      if (!json) { await FS.StorageAccessFramework.deleteAsync(report).catch(() => {}); return; }   // no orphan report.html
+      await setSetting(diary, 'backup_uri_report', report, false);
+      await setSetting(diary, 'backup_uri_diary', json, false);
+      await setSetting(diary, 'backup_dirty', '0', false);
+      await setSetting(diary, 'backup_pending', '0', false);
+      await setSetting(diary, 'backup_last_ok', new Date().toISOString(), false);
+      await loadBackup();
+    } catch (e) {   // a location that refuses the persistable grant, or a failed write
+      if (report) await FS.StorageAccessFramework.deleteAsync(report).catch(() => {});
+      setBackupMsg((e as Error).message);
+    }
   };
   const retryBackup = async () => {
     const r = await runBackup(diary, true);
@@ -132,7 +138,7 @@ export default function Settings() {
       await importDiary(diary, f);
       setRestore(null); setArmed(false);
       setRestoreMsg(`Restored ${f.entries.length} entries, ${f.custom_foods.length} custom foods, ${f.recipes.length} recipes, ${f.weights.length} weights.`);
-    } catch (e) { setRestoreMsg((e as Error).message); }
+    } catch (e) { setArmed(false); setRestoreMsg((e as Error).message); }
     finally { setRestoring(false); }
   };
 
@@ -232,10 +238,11 @@ export default function Settings() {
       <Text style={h}>Backup</Text>
       <Button title="Set up backup" onPress={setUpBackup} />
       {backup.pending ? (
-        <View style={row}><Text style={{ color: '#c33', flex: 1 }}>{backupMsg || 'Backup failed'}</Text><Button title="Retry" onPress={retryBackup} /></View>
+        <View style={row}><Text style={{ color: '#c33', flex: 1 }}>Backup failed</Text><Button title="Retry" onPress={retryBackup} /></View>
       ) : (
         <Text>{backup.lastOk ? `Last backup: ${new Date(backup.lastOk).toLocaleString()}` : 'Backup not set up'}</Text>
       )}
+      {!!backupMsg && <Text style={{ color: '#c33' }}>{backupMsg}</Text>}
       <Text style={{ color: '#666' }}>To share with a coach, share the folder that holds report.html from your cloud app. They can open it in any browser; it refreshes every time you log.</Text>
       <Button title="Restore from backup" onPress={pickRestore} />
       {restore && (
