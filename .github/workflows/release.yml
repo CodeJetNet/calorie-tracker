@@ -48,3 +48,49 @@ jobs:
           APK="calorie-tracker-${GITHUB_REF_NAME}.apk"
           cp android/app/build/outputs/apk/release/app-release.apk "$APK"
           gh release create "$GITHUB_REF_NAME" "$APK" --generate-notes || gh release upload "$GITHUB_REF_NAME" "$APK" --clobber
+  ios:
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with: { node-version: 24, cache: npm }
+      - run: npm ci
+      - run: sh scripts/fetch-starter.sh
+      - name: Install signing certificate and profile into a throwaway keychain
+        env:
+          CERT_B64: ${{ secrets.IOS_CERT_P12_BASE64 }}
+          CERT_PW: ${{ secrets.IOS_CERT_PASSWORD }}
+          PROFILE_B64: ${{ secrets.IOS_PROFILE_BASE64 }}
+        run: |
+          KC="$RUNNER_TEMP/build.keychain-db"
+          printf '%s' "$CERT_B64" | base64 -d > "$RUNNER_TEMP/cert.p12" && test -s "$RUNNER_TEMP/cert.p12"
+          security create-keychain -p ci "$KC" && security set-keychain-settings -lut 21600 "$KC" && security unlock-keychain -p ci "$KC"
+          security import "$RUNNER_TEMP/cert.p12" -P "$CERT_PW" -A -t cert -f pkcs12 -k "$KC"
+          security set-key-partition-list -S apple-tool:,apple: -k ci "$KC"
+          security list-keychains -d user -s "$KC"
+          PROFILES=~/Library/MobileDevice/Provisioning\ Profiles
+          mkdir -p "$PROFILES"
+          printf '%s' "$PROFILE_B64" | base64 -d > "$PROFILES/appstore.mobileprovision" && test -s "$PROFILES/appstore.mobileprovision"
+      - run: npx expo prebuild --platform ios --no-install
+        env:
+          OFF_APP_PASSWORD: ${{ secrets.OFF_APP_PASSWORD }}
+      - run: cd ios && pod install
+      - name: Archive and export
+        env:
+          OFF_APP_PASSWORD: ${{ secrets.OFF_APP_PASSWORD }}     # read by app.config.ts when the JS bundle is built
+          APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
+        run: |
+          cd ios
+          xcodebuild -workspace CalorieTracker.xcworkspace -scheme CalorieTracker -configuration Release \
+            -archivePath "$RUNNER_TEMP/app.xcarchive" archive CODE_SIGN_STYLE=Manual \
+            DEVELOPMENT_TEAM="$APPLE_TEAM_ID" PROVISIONING_PROFILE_SPECIFIER="Calorie Tracker App Store"
+          xcodebuild -exportArchive -archivePath "$RUNNER_TEMP/app.xcarchive" -exportOptionsPlist ../plugins/ExportOptions.plist -exportPath "$RUNNER_TEMP/export"
+      - name: Upload to TestFlight
+        env:
+          ASC_KEY_P8_BASE64: ${{ secrets.ASC_KEY_P8_BASE64 }}
+          ASC_KEY_ID: ${{ secrets.ASC_KEY_ID }}
+          ASC_ISSUER_ID: ${{ secrets.ASC_ISSUER_ID }}
+        run: |
+          mkdir -p ~/.appstoreconnect/private_keys
+          printf '%s' "$ASC_KEY_P8_BASE64" | base64 -d > ~/.appstoreconnect/private_keys/AuthKey_"$ASC_KEY_ID".p8
+          xcrun altool --upload-app -f "$RUNNER_TEMP"/export/*.ipa -t ios --apiKey "$ASC_KEY_ID" --apiIssuer "$ASC_ISSUER_ID"
