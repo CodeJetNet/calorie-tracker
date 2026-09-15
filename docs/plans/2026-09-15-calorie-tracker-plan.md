@@ -18,7 +18,7 @@ Design document: `docs/plans/2026-09-15-calorie-tracker-design.md`
 - Commit after every green step. Prefixes: `feat:`, `test:`, `chore:`, `ci:`, `docs:`.
 - Nutrient key is the FoodData Central nutrient id as a string, e.g. `"1008"` for energy in kcal. Everywhere: build output columns `n1008`, JSON objects, TypeScript records.
 - Barcode key is a GTIN-13 string. Everywhere. UPC-A gets a leading zero, EAN-8 gets five leading zeros, UPC-E is expanded first.
-- Node 24, Python 3.12, Java 17.
+- Node 22 or newer, Python 3.12 or newer, Java 17 or 21. CI pins Node 24, Python 3.12, Java 17.
 - Tests cover pure logic only. Screens are checked by hand on a device with the checklist in each task.
 - Ponytail rules: no abstraction with one implementation, no dependency for what ten lines do, no scaffolding for later.
 - Tests in the app that need SQLite use Node's built-in `node:sqlite`, not a third-party binding.

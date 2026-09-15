@@ -52,10 +52,10 @@ at `https://world.openfoodfacts.net`. Step 1 must be rerun with that account,
 and Step 2 (photo upload) was not run.
 
 The plan's throwaway barcode `0000000000017` is unusable: the server strips
-leading zeros and rejects the remainder,
-`{"code":"00000017","status":0,"status_verbose":"no code or invalid code"}`.
-Use a checksum-valid GTIN-13 in the restricted-circulation range, for example
-`2000000000015`.
+leading zeros and rejects the remainder as "no code or invalid code" (seen on
+one request variant during the spike; with the plan's exact POST the auth
+failure page comes first). Use a checksum-valid GTIN-13 in the
+restricted-circulation range, for example `2000000000015`; the plan now does.
 
 Field names, confirmed from the server's OpenAPI reference
 (`docs/api/ref/requestBodies/add_or_edit_a_product.yaml` and
