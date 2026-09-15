@@ -39,7 +39,9 @@
             "minSdkVersion": 26
           }
         }
-      ]
+      ],
+      "expo-asset",
+      "./plugins/withBackupRules"
     ],
     "scheme": "calorietracker"
   }
