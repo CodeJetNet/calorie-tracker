@@ -15,12 +15,12 @@ export function recipeNutrients(ingredients: Ingredient[], servings: number): Nu
 type Row = { id: string; name: string; servings: number; ingredients: string; nutrients: string };
 const fromRow = (r: Row): Recipe => ({ ...r, ingredients: JSON.parse(r.ingredients), nutrients: JSON.parse(r.nutrients) });
 
-export async function upsertRecipe(db: Db, r: Recipe): Promise<void> {
+export async function upsertRecipe(db: Db, r: Recipe, notify = true): Promise<void> {
   await db.run(`INSERT INTO recipes (id, name, servings, ingredients, nutrients) VALUES (?,?,?,?,?)
     ON CONFLICT(id) DO UPDATE SET name = excluded.name, servings = excluded.servings, ingredients = excluded.ingredients,
     nutrients = excluded.nutrients, updated_at = datetime('now')`,
     [r.id, r.name, r.servings, JSON.stringify(r.ingredients), JSON.stringify(r.nutrients)]);
-  diaryChanged();
+  if (notify) diaryChanged();
 }
 export async function deleteRecipe(db: Db, id: string) { await db.run('DELETE FROM recipes WHERE id = ?', [id]); diaryChanged(); }
 export async function recipe(db: Db, id: string) { const [r] = await db.all<Row>('SELECT id, name, servings, ingredients, nutrients FROM recipes WHERE id = ?', [id]); return r ? fromRow(r) : null; }

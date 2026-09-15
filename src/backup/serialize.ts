@@ -39,9 +39,9 @@ export async function importDiary(db: Db, file: DiaryFile): Promise<void> {
     await db.run('DELETE FROM recipes'); await db.run('DELETE FROM weights');
     await db.run(`DELETE FROM settings WHERE key NOT GLOB 'foods_*' AND key NOT GLOB 'backup_*' AND key != 'app_uuid'`);
     for (const e of file.entries) await db.run(INSERT_ENTRY, entryParams(e));
-    for (const c of file.custom_foods) await upsertCustomFood(db, c);
-    for (const r of file.recipes) await upsertRecipe(db, r);
-    for (const w of file.weights) await setWeight(db, w);
+    for (const c of file.custom_foods) await upsertCustomFood(db, c, false);
+    for (const r of file.recipes) await upsertRecipe(db, r, false);
+    for (const w of file.weights) await setWeight(db, w, false);
     for (const [k, v] of Object.entries(file.settings)) if (!DEVICE_KEYS.test(k)) await setSetting(db, k, v, false);
   });
   diaryChanged();

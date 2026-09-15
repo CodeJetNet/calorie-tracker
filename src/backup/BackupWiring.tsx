@@ -8,7 +8,7 @@ import { runBackup, scheduleBackup } from './scheduler';
 export function BackupWiring() {
   const { diary } = useDb();
   useEffect(() => {
-    onDiaryChanged(() => { void setSetting(diary, 'backup_dirty', '1', false); scheduleBackup(diary); });
+    onDiaryChanged(() => { setSetting(diary, 'backup_dirty', '1', false).catch(() => {}); scheduleBackup(diary); });
     // Write the diary when it is dirty and the app leaves the foreground, or when a previous attempt failed.
     const flush = async () => {
       const dirty = (await getSetting(diary, 'backup_dirty')) === '1';
