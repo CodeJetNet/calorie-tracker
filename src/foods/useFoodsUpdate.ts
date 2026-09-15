@@ -45,7 +45,7 @@ export function useFoodsUpdate() {
     } catch (e) {
       const msg = (e as Error).message;
       patch(msg === PAUSED ? { status: 'paused' } : { status: 'error', error: msg });
-    } finally { await reopenFoods(); installing.current = false; }   // the old file is still in place after a failure
+    } finally { installing.current = false; await reopenFoods(); }   // the old file is still in place after a failure
   };
 
   return { ...s, check, download };
