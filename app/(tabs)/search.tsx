@@ -28,24 +28,27 @@ export default function Search() {
   }, [diary]));
 
   useEffect(() => {
+    let live = true;   // results for "a" must not land after "ab"
     const t = setTimeout(async () => {
       const s = q.trim();
+      let g: [string, Row[]][];
       if (s.length < 2) {
-        setGroups([
+        g = [
           ['Recent', (await recentEntries(diary)).map(e => ({ key: e.id, ref: e.food_ref ?? 'entry', title: e.name, sub: e.amount_desc ?? undefined, relog: e.id }))],
           ['Custom foods', (await allCustomFoods(diary)).map(custom)],
           ['Recipes', (await allRecipes(diary)).map(rec)],
-        ]);
+        ];
       } else {
         const l = s.toLowerCase();
-        setGroups([
+        g = [
           ['Custom foods', (await searchCustomFoods(diary, s)).map(custom)],
           ['Recipes', (await allRecipes(diary)).filter(r => r.name.toLowerCase().includes(l)).map(rec)],
           ['Foods', foods ? (await search(foods, s)).map(dbFood) : []],
-        ]);
+        ];
       }
+      if (live) setGroups(g);
     }, 250);
-    return () => clearTimeout(t);
+    return () => { live = false; clearTimeout(t); };
   }, [q, tick, diary, foods]);
 
   const open = (r: Row) => router.push({ pathname: '/food/[ref]', params: { ref: r.ref, day, meal, pick, relog: r.relog } });

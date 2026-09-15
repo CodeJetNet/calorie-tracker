@@ -5,6 +5,10 @@ export type NutrientDef = { id: string; key: string; name: string; unit: string;
 
 export const NUTRIENTS: NutrientDef[] = list as NutrientDef[];
 export const PANEL = NUTRIENTS.filter(n => n.panel);
+/** Energy and the macros: the Today card and the Goals inputs. */
+export const MAIN = ['1008', '1003', '1005', '1004'];
+/** What Food detail and the custom food editor show before "More". */
+export const TOP = [...MAIN, '1079', '2000', '1093'];
 export const BY_ID: Record<string, NutrientDef> = Object.fromEntries(NUTRIENTS.map(n => [n.id, n]));
 /** Daily targets for one adult, from nutrients.json. The `goals` setting overrides per nutrient. */
 export const DEFAULT_TARGETS: Nutrients = Object.fromEntries(NUTRIENTS.filter(n => n.target != null).map(n => [n.id, n.target as number]));

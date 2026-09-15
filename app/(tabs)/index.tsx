@@ -6,10 +6,9 @@ import { addDays, today } from '../../src/dates';
 import { addEntry, deleteEntry, entriesForDay, type Entry } from '../../src/diary/entries';
 import { DEFAULT_MEALS, getJson, getSetting, goals, setSetting } from '../../src/diary/settings';
 import { checkDue, fetchManifest, pickFile, SUPPORTED_SCHEMA } from '../../src/foods/update';
-import { PANEL, sum, type Nutrients } from '../../src/nutrients';
+import { MAIN, PANEL, sum, type Nutrients } from '../../src/nutrients';
 import { fmt, NutrientBar } from '../../src/ui/NutrientBar';
 
-const MAIN = ['1008', '1003', '1005', '1004'];
 const row = { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' } as const;
 
 export default function Today() {
@@ -21,14 +20,14 @@ export default function Today() {
   const [meals, setMeals] = useState(DEFAULT_MEALS);
   const [more, setMore] = useState(false);
   const [deleted, setDeleted] = useState<Entry | null>(null);
-  const [starter, setStarter] = useState(false);   // only the bundled generic foods are installed
-  const [newer, setNewer] = useState(false);       // the manifest lists a different file than the installed one
+  const [md5, setMd5] = useState<string | null>(null);        // installed file; null while on the bundled starter
+  const [latest, setLatest] = useState<string | null>(null);  // the manifest's file for the chosen country
 
   const load = useCallback(async () => {
     setEntries(await entriesForDay(diary, day));
     setTargets(await goals(diary));
     setMeals(await getJson<string[]>(diary, 'meals', DEFAULT_MEALS));
-    setStarter(!(await getSetting(diary, 'foods_md5')));
+    setMd5(await getSetting(diary, 'foods_md5'));
   }, [diary, day]);
   useFocusEffect(useCallback(() => { load(); }, [load]));
 
@@ -39,8 +38,7 @@ export default function Today() {
       try {
         const f = pickFile(await fetchManifest(), (await getSetting(diary, 'foods_country')) ?? 'US', SUPPORTED_SCHEMA);
         await setSetting(diary, 'foods_checked_at', String(Date.now()), false);
-        const md5 = await getSetting(diary, 'foods_md5');
-        if (f && md5 && f.md5 !== md5) setNewer(true);
+        if (f) setLatest(f.md5);
       } catch { /* offline: try again next foreground */ }
     };
     check();
@@ -48,6 +46,7 @@ export default function Today() {
     return () => sub.remove();
   }, [diary]);
 
+  const starter = !md5, newer = !!md5 && !!latest && latest !== md5;
   const totals = sum(entries.map(e => e.nutrients));
   const burned: number | null = null;   // Milestone 5
 

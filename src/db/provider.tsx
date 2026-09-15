@@ -23,7 +23,7 @@ export function DbProvider({ children }: { children: ReactNode }) {
         foodsRaw = await SQLite.openDatabaseAsync(FOODS_FILE);
         return wrap(foodsRaw);
       };
-      const foods = await openFoods();
+      const foods = await openFoods().catch(() => null);   // no starter asset or a corrupt file: run diary-only rather than blank
       const make = (foods: Db | null): Ctx => ({
         diary, foods,
         closeFoods: async () => { await foodsRaw?.closeAsync(); foodsRaw = null; setCtx(make(null)); },
