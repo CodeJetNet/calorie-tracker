@@ -123,7 +123,7 @@ Size target for the US file: 50 to 100 MB compressed. Measure in the first build
 
 ### Stack
 
-Expo with a custom dev client (Health Connect rules out Expo Go), TypeScript, expo-router, expo-sqlite, expo-camera for barcodes, expo-file-system, expo-document-picker for restore and import, `@react-native-documents/picker` for the create-document dialog that makes the two backup files, expo-sharing, react-native-health-connect on Android and @kingstinct/react-native-healthkit on iOS. No state library: SQLite is the state, React context carries settings.
+Expo with a custom dev client (Health Connect rules out Expo Go), TypeScript, expo-router, expo-sqlite, expo-camera for barcodes, expo-file-system, expo-document-picker for restore and import, a local Expo module for the create-document dialog that makes the two backup files (the picker library is kept for the iOS folder grant), expo-sharing, react-native-health-connect on Android and @kingstinct/react-native-healthkit on iOS. No state library: SQLite is the state, React context carries settings.
 
 ### Screens
 
@@ -189,7 +189,7 @@ The foods file is excluded from Android Auto Backup through backup rules. Auto B
 ### Backup and coach sharing, rung 2
 
 - Settings has "Set up backup", which opens the system create-document dialog twice, once for `report.html` and once for `diary.json`. The user picks the provider and folder inside that dialog. The app persists the two document URIs and takes persistable permission on them. Google Drive supports this; it does not support folder grants, which is why there is no folder picker.
-- expo-file-system exposes only the folder-grant API, so the create-document call comes from a picker library that wraps `ACTION_CREATE_DOCUMENT`.
+- expo-file-system exposes only the folder-grant API and the picker library's save call never takes a persistable grant, which dies at the next reboot, so the create-document call is a forty-line local Expo module (`modules/create-document`) that launches `ACTION_CREATE_DOCUMENT` and calls `takePersistableUriPermission` on the result.
 - On iOS the Files app offers iCloud Drive, Google Drive and OneDrive, and its file providers do support folder grants through a security-scoped bookmark, so the iOS build asks for a folder once and writes the same two files into it. Its own spike, before the iOS milestone, confirms the grant survives a restart; the fallback is the Android two-file shape.
 - After any diary write: debounce five seconds, then overwrite `report.html` in place so the coach always opens one current file. `diary.json` (full export with `schemaVersion` inside) is overwritten when the app goes to the background, which on a phone is every time the screen locks, and on the next launch if that write was missed. A diary with years of imported history is tens of megabytes and must not be uploaded on every entry.
 - `report.html` is self-contained: the last 30 days by default, a daily totals table, per-meal detail, a macro chart and a weight chart in inline SVG. No external assets.

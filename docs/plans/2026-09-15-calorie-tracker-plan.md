@@ -1159,13 +1159,13 @@ This is the go/no-go for the coach-sharing design. Do it before anything else in
 
 **Files:** Temporarily modify `app/index.tsx`
 
-**Step 1:** Replace `app/index.tsx` with a spike screen. Check the option names of `saveDocuments` against the package README first; they are the one thing here that is easy to get wrong.
+**Step 1:** Replace `app/index.tsx` with a spike screen. It uses the local module from Task 3.3 (`modules/create-document`), which exists so the grant survives a reboot; the picker library's `saveDocuments` never takes a persistable permission.
 
 ```tsx
 import { useEffect, useState } from 'react';
 import { Button, Text, View } from 'react-native';
 import * as FS from 'expo-file-system/legacy';
-import { saveDocuments } from '@react-native-documents/picker';
+import { createDocument } from '../modules/create-document';
 
 const SAVED = `${FS.documentDirectory}spike-uri.txt`;   // survives a restart, unlike React state
 
@@ -1181,12 +1181,11 @@ export default function Spike() {
   return (
     <View style={{ padding: 24, gap: 12 }}>
       <Button title="1. Create spike.txt (5000 bytes)" onPress={async () => {
-        const seed = `${FS.cacheDirectory}spike.txt`;
-        await FS.writeAsStringAsync(seed, 'x'.repeat(5000));
-        const [r] = await saveDocuments({ sourceUris: [seed], fileName: 'spike.txt', mimeType: 'text/plain' });
-        if (!r?.uri) return add('cancelled');
-        await FS.writeAsStringAsync(SAVED, r.uri);
-        setUri(r.uri); add('created ' + r.uri);
+        const u = await createDocument('spike.txt', 'text/plain');
+        if (!u) return add('cancelled');
+        await FS.StorageAccessFramework.writeAsStringAsync(u, 'x'.repeat(5000));
+        await FS.writeAsStringAsync(SAVED, u);
+        setUri(u); add('created ' + u);
       }} />
       <Button title="2. Overwrite with 20 bytes" disabled={!uri} onPress={() => write('short ' + Date.now())} />
       <Button title="3. Overwrite with 5000 bytes" disabled={!uri} onPress={() => write('y'.repeat(5000))} />
@@ -1202,7 +1201,7 @@ export default function Spike() {
 
 **Step 4:** Record the result in `docs/plans/export-headers.md` under "Create-document spike". Outcomes:
 - Go: all of Step 2 passes on Drive.
-- The write after restart fails with a permission error: the library did not take a persistable permission. Replace it with a local Expo module (`modules/create-document`, about forty lines of Kotlin) that launches `ACTION_CREATE_DOCUMENT`, calls `takePersistableUriPermission` on the result, and returns the URI. Keep the rest of the design.
+- The write after a reboot (not just a force-stop) fails with a permission error: the provider refused the persistable grant. Record which provider, and fall back to the next outcome.
 - The shrink test leaves trailing bytes, or Drive is missing from the dialog: OneDrive only, or manual export through the share sheet. Decide, write it down, and adjust Tasks 3.3 and 3.4.
 
 **Step 5:** `git checkout app/index.tsx` to discard the spike. No commit.
@@ -2559,25 +2558,86 @@ ${weights ? `<h2>Weight</h2>${weightChart}<table><tr><th>Day</th><th>kg</th></tr
 
 ### Task 3.3: Backup documents
 
-**Files:** Create `src/backup/documents.ts`
+**Files:** Create `src/backup/documents.ts`, `modules/create-document/{expo-module.config.json,index.ts,android/build.gradle,android/src/main/java/expo/modules/createdocument/CreateDocumentModule.kt}`
 
-Adjust this task if the spike in Task 2.2 ended with the local-module fallback: `createDocument` then calls that module instead of `saveDocuments`.
+The picker library's `saveDocuments` rejects on cancel and never calls `takePersistableUriPermission`, so its grant dies at the next reboot. A local Expo module does the one thing needed. Expo autolinks anything under `modules/`.
+
+```kotlin
+// modules/create-document/android/src/main/java/expo/modules/createdocument/CreateDocumentModule.kt
+package expo.modules.createdocument
+
+import android.app.Activity
+import android.content.Intent
+import expo.modules.kotlin.Promise
+import expo.modules.kotlin.modules.Module
+import expo.modules.kotlin.modules.ModuleDefinition
+
+private const val CREATE_DOCUMENT_CODE = 7311
+
+class CreateDocumentModule : Module() {
+  private var pending: Promise? = null
+
+  override fun definition() = ModuleDefinition {
+    Name("CreateDocument")
+
+    AsyncFunction("createDocument") { name: String, mime: String, promise: Promise ->
+      val intent = Intent(Intent.ACTION_CREATE_DOCUMENT)
+        .addCategory(Intent.CATEGORY_OPENABLE)
+        .setType(mime)
+        .putExtra(Intent.EXTRA_TITLE, name)
+      pending = promise
+      try {
+        appContext.throwingActivity.startActivityForResult(intent, CREATE_DOCUMENT_CODE)
+      } catch (e: Throwable) {
+        pending = null
+        throw e
+      }
+    }
+
+    OnActivityResult { activity, (requestCode, resultCode, data) ->
+      if (requestCode != CREATE_DOCUMENT_CODE) return@OnActivityResult
+      val uri = if (resultCode == Activity.RESULT_OK) data?.data else null
+      if (uri != null) {
+        activity.contentResolver.takePersistableUriPermission(
+          uri, Intent.FLAG_GRANT_READ_URI_PERMISSION or Intent.FLAG_GRANT_WRITE_URI_PERMISSION
+        )
+      }
+      pending?.resolve(uri?.toString())
+      pending = null
+    }
+  }
+}
+```
+
+```ts
+// modules/create-document/index.ts
+import { requireNativeModule } from 'expo';
+
+const native = requireNativeModule('CreateDocument');
+
+/** System create-document dialog. Resolves the document URI with a persistable grant, or null if cancelled. */
+export function createDocument(name: string, mime: string): Promise<string | null> {
+  return native.createDocument(name, mime);
+}
+```
+
+`expo-module.config.json` is `{"platforms": ["android"], "android": {"modules": ["expo.modules.createdocument.CreateDocumentModule"]}}` and `android/build.gradle` is the minimal Expo library shape: the `com.android.library` and `expo-module-gradle-plugin` plugins, `namespace "expo.modules.createdocument"`. Verify with `npx expo prebuild --platform android --no-install && cd android && ./gradlew :app:compileDebugKotlin -q`.
 
 ```ts
 // src/backup/documents.ts
 import * as FS from 'expo-file-system/legacy';
-import { saveDocuments } from '@react-native-documents/picker';
+import { createDocument as nativeCreateDocument } from '../../modules/create-document';
 
 /**
- * Ask the user to create `name` in their cloud storage through the system dialog, seeded with
- * `content`. Returns the document URI to remember, or null if they cancelled. Google Drive
+ * Ask the user to create `name` in their cloud storage through the system dialog, then write
+ * `content` into it. Returns the document URI to remember, or null if they cancelled. Google Drive
  * supports this but not folder grants, which is why a backup is two picked files, not a folder.
  */
 export async function createDocument(name: string, mime: string, content: string): Promise<string | null> {
-  const seed = `${FS.cacheDirectory}${name}`;
-  await FS.writeAsStringAsync(seed, content);
-  const [r] = await saveDocuments({ sourceUris: [seed], fileName: name, mimeType: mime });
-  return r?.uri ?? null;
+  const uri = await nativeCreateDocument(name, mime);
+  if (uri === null) return null;
+  await overwrite(uri, content);
+  return uri;
 }
 
 /** Overwrite a document from createDocument in place. Throws if the URI no longer works. */
@@ -2588,7 +2648,7 @@ export function overwrite(uri: string, content: string): Promise<void> {
 
 No unit test: this is a thin wrapper over a native API and is exercised by the manual check in Task 3.4.
 
-Commit: `git add -A && git commit -m "feat: create-document and overwrite helpers for the backup files"`
+Commit: `git add -A && git commit -m "feat: create-document module with a persistable grant, and the overwrite helper"`
 
 ### Task 3.4: Backup scheduler and wiring
 
