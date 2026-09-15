@@ -15,7 +15,7 @@ const input = { borderWidth: 1, borderColor: '#ccc', borderRadius: 8, padding: 8
 export default function CustomFoodEditor() {
   const { diary } = useDb();
   const router = useRouter();
-  const p = useLocalSearchParams<{ id: string; barcode?: string; day?: string; meal?: string; pick?: string }>();
+  const p = useLocalSearchParams<{ id: string; barcode?: string; prefill?: string; day?: string; meal?: string; pick?: string }>();   // prefill: JSON of a food to correct
   const isNew = p.id === 'new';
   const [id] = useState(() => (isNew ? Crypto.randomUUID() : p.id));
   const [f, setF] = useState({ name: '', brand: '', barcode: p.barcode ?? '', serving_size: '', serving_desc: '' });
@@ -27,7 +27,7 @@ export default function CustomFoodEditor() {
 
   useEffect(() => {
     (async () => {
-      const src: CustomFood | null = isNew ? null : await customFood(diary, p.id);
+      const src: Omit<CustomFood, 'id'> | null = isNew ? (p.prefill ? JSON.parse(p.prefill) : null) : await customFood(diary, p.id);
       if (!src) return;
       setF({ name: src.name ?? '', brand: src.brand ?? '', barcode: src.barcode ?? p.barcode ?? '', serving_size: src.serving_size ? String(src.serving_size) : '', serving_desc: src.serving_desc ?? '' });
       setUnit(src.serving_unit ?? 'g');
