@@ -593,7 +593,7 @@ def main(argv: list[str]) -> None:
         "files": files}, indent=2))
 
 
-REPO_RELEASE_URL = "https://github.com/OWNER/food-data/releases/latest/download"   # set OWNER in Task 1.8
+REPO_RELEASE_URL = "https://github.com/codejetnet/food-data/releases/latest/download"
 
 if __name__ == "__main__":
     main(sys.argv[1:])
@@ -905,7 +905,7 @@ jobs:
 ### Task 1.8: Scheduled build and release
 
 **Repo:** `food-data`
-**Files:** Create `.github/workflows/build.yml`, `tests/test_smoke.py`. Modify `build.py` (set `OWNER`).
+**Files:** Create `.github/workflows/build.yml`, `tests/test_smoke.py`.
 
 **Step 1:** Write the smoke test. It runs only when `out/foods-US.db` exists, so it is skipped in the PR workflow and runs after the build.
 
@@ -928,7 +928,7 @@ def test_file_size_budget():
     assert DB.with_suffix(".zip").stat().st_size < 120 * 1024 * 1024
 ```
 
-**Step 2:** Set `REPO_RELEASE_URL` in `build.py` to your GitHub owner. Create the empty GitHub repo `food-data` (public) and push.
+**Step 2:** Create the empty public repo `codejetnet/food-data` on GitHub and push.
 
 **Step 3:** Write `.github/workflows/build.yml`.
 
@@ -969,7 +969,7 @@ jobs:
             --notes "Built from Open Food Facts (ODbL) and USDA FoodData Central (public domain). See manifest.json."
 ```
 
-**Step 4:** Push, trigger `workflow_dispatch` from the Actions tab, watch it. Expected: a release tagged `data-...` with six zips and a manifest, and `https://github.com/OWNER/food-data/releases/latest/download/manifest.json` returns JSON. If the runner runs out of disk, add `SET memory_limit = '10GB'` in `connect` and remove the `tmp` directory after `merge`. If it exceeds time, add the `>= 3 nutrients` filter from Task 1.6.
+**Step 4:** Push, trigger `workflow_dispatch` from the Actions tab, watch it. Expected: a release tagged `data-...` with six zips and a manifest, and `https://github.com/codejetnet/food-data/releases/latest/download/manifest.json` returns JSON. If the runner runs out of disk, add `SET memory_limit = '10GB'` in `connect` and remove the `tmp` directory after `merge`. If it exceeds time, add the `>= 3 nutrients` filter from Task 1.6.
 
 **Step 5:** Commit and push: `git add -A && git commit -m "ci: weekly build and GitHub Release publish" && git push`
 
@@ -1007,7 +1007,7 @@ npx expo install jest-expo jest @types/jest -- --save-dev
 "jest": { "preset": "jest-expo", "testMatch": ["**/*.test.ts"] }
 ```
 
-**Step 3:** Edit `app.json` `expo` section: `"scheme": "calorietracker"`, `"android": { "package": "com.OWNER.calorietracker" }`, and plugins:
+**Step 3:** Edit `app.json` `expo` section: `"scheme": "calorietracker"`, `"android": { "package": "com.codejetnet.calorietracker" }`, and plugins:
 
 ```json
 "plugins": [
@@ -1151,7 +1151,7 @@ export function sum(items: Nutrients[]): Nutrients {
 # scripts/check-nutrients.sh  (run in CI, Task 7.3)
 #!/usr/bin/env sh
 set -e
-curl -sf https://raw.githubusercontent.com/OWNER/food-data/main/nutrients.json | diff -q - src/nutrients.json \
+curl -sf https://raw.githubusercontent.com/codejetnet/food-data/main/nutrients.json | diff -q - src/nutrients.json \
   || { echo "src/nutrients.json drifted from food-data; copy it over"; exit 1; }
 ```
 
@@ -1725,7 +1725,7 @@ import { unzip } from 'react-native-zip-archive';
 export type ManifestFile = { name: string; country: string; bytes: number; md5: string; url: string };
 export type Manifest = { schemaVersion: number; builtAt: string; files: ManifestFile[] };
 
-export const MANIFEST_URL = 'https://github.com/OWNER/food-data/releases/latest/download/manifest.json';
+export const MANIFEST_URL = 'https://github.com/codejetnet/food-data/releases/latest/download/manifest.json';
 export const SUPPORTED_SCHEMA = 1;
 export const FOODS_DIR = `${FS.documentDirectory}SQLite/`;
 export const FOODS_FILE = 'foods.db';
@@ -2009,7 +2009,7 @@ export function fromOffProduct(gtin13: string, p: OffProduct): Omit<CustomFood, 
 
 export async function lookupOff(gtin13: string): Promise<Omit<CustomFood, 'id'> | null> {
   const res = await fetch(`https://world.openfoodfacts.org/api/v2/product/${gtin13}.json?fields=product_name,brands,serving_quantity,serving_size,nutriments`,
-    { headers: { 'User-Agent': 'CalorieTracker/1.0 (github.com/OWNER/calorie-tracker)' } });
+    { headers: { 'User-Agent': 'CalorieTracker/1.0 (github.com/codejetnet/calorie-tracker)' } });
   if (!res.ok) return null;
   const json = await res.json();
   return json.status === 1 ? fromOffProduct(gtin13, json.product) : null;
@@ -2831,7 +2831,7 @@ import { suggestUrl } from './contribute';
 test('url opens GitHub new-file editor with the food as JSON', () => {
   const url = suggestUrl({ barcode: '3017620422003', name: 'Nutella', brand: 'Ferrero', serving_size: 15, serving_unit: 'g', serving_desc: '1 tbsp', nutrients: { '1008': 539 } });
   const u = new URL(url);
-  expect(u.pathname).toBe('/OWNER/food-data/new/main');
+  expect(u.pathname).toBe('/codejetnet/food-data/new/main');
   expect(u.searchParams.get('filename')).toBe('community/products/3017620422003.json');
   expect(JSON.parse(u.searchParams.get('value')!)).toEqual({ barcode: '3017620422003', name: 'Nutella', brand: 'Ferrero', serving_size: 15, serving_unit: 'g', serving_desc: '1 tbsp', nutrients: { '1008': 539 } });
 });
@@ -2844,7 +2844,7 @@ test('url opens GitHub new-file editor with the food as JSON', () => {
 ```ts
 // src/contribute.ts
 import type { CustomFood } from './diary/customFoods';
-export const FOOD_DATA_REPO = 'https://github.com/OWNER/food-data';
+export const FOOD_DATA_REPO = 'https://github.com/codejetnet/food-data';
 
 /** GitHub's new-file editor accepts filename and value in the query string and handles fork + PR for the visitor. */
 export function suggestUrl(f: Omit<CustomFood, 'id'> & { barcode: string }): string {
@@ -2878,7 +2878,7 @@ Commit: `git add -A && git commit -m "feat: about screen with attribution"`
 
 **Files:** Create `docs/privacy.md`, `docs/_config.yml` (`theme: jekyll-theme-minimal`)
 
-Content: what the app stores (diary on device), what it sends (nothing, except the optional Open Food Facts barcode lookup which sends only the barcode, and the food database download from GitHub), what it never collects (no accounts, no analytics, no advertising identifiers), that backups go only to a folder the user picks, Health Connect usage (reads active calories, writes nutrition, only when enabled), and a contact email. Enable GitHub Pages in the repo settings: Source "Deploy from a branch", branch `main`, folder `/docs`. The page URL is `https://OWNER.github.io/calorie-tracker/privacy`.
+Content: what the app stores (diary on device), what it sends (nothing, except the optional Open Food Facts barcode lookup which sends only the barcode, and the food database download from GitHub), what it never collects (no accounts, no analytics, no advertising identifiers), that backups go only to a folder the user picks, Health Connect usage (reads active calories, writes nutrition, only when enabled), and a contact email. Enable GitHub Pages in the repo settings: Source "Deploy from a branch", branch `main`, folder `/docs`. The page URL is `https://codejetnet.github.io/calorie-tracker/privacy`.
 
 Commit: `git add -A && git commit -m "docs: privacy policy for Play listing"`
 
@@ -2922,7 +2922,7 @@ const config: ExpoConfig = {
   version: /^v\d/.test(tag) ? tag.slice(1) : '0.0.0',
   orientation: 'portrait', userInterfaceStyle: 'automatic',
   android: {
-    package: 'com.OWNER.calorietracker',
+    package: 'com.codejetnet.calorietracker',
     versionCode: Number(process.env.GITHUB_RUN_NUMBER ?? 1),
     permissions: [],
   },
@@ -3008,7 +3008,7 @@ jobs:
         uses: r0adkll/upload-google-play@v1
         with:
           serviceAccountJsonPlainText: ${{ secrets.PLAY_SERVICE_ACCOUNT_JSON }}
-          packageName: com.OWNER.calorietracker
+          packageName: com.codejetnet.calorietracker
           releaseFiles: android/app/build/outputs/bundle/release/app-release.aab
           track: internal
           status: completed
@@ -3035,7 +3035,7 @@ This is a checklist, not code. Each item is something only the account owner can
    ```
    Store the keystore file and both passwords in your password manager. Never commit it; `.gitignore` already excludes `*.keystore`.
 2. **GitHub secrets** on the `calorie-tracker` repo, Settings, Secrets and variables, Actions: `ANDROID_KEYSTORE_BASE64` (clipboard from above), `ANDROID_KEYSTORE_PASSWORD`, `ANDROID_KEY_ALIAS` (`upload`), `ANDROID_KEY_PASSWORD`.
-3. **Google Play Console.** Pay the one-time fee, create the app with package `com.OWNER.calorietracker`. Play App Signing is on by default for new apps: Google holds the app signing key and your keystore is only the upload key, which can be reset if it ever leaks.
+3. **Google Play Console.** Pay the one-time fee, create the app with package `com.codejetnet.calorietracker`. Play App Signing is on by default for new apps: Google holds the app signing key and your keystore is only the upload key, which can be reset if it ever leaks.
 4. **First upload is manual.** The Play API refuses to create the first release. Build once locally with the release keystore:
    ```bash
    ANDROID_KEYSTORE_FILE=$PWD/upload.keystore ANDROID_KEYSTORE_PASSWORD=... ANDROID_KEY_ALIAS=upload ANDROID_KEY_PASSWORD=... npx expo prebuild --platform android --clean
