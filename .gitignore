@@ -46,3 +46,6 @@ fixtures/raw/
 
 # starter foods file, fetched by scripts/fetch-starter.sh
 assets/foods-starter.db
+
+# gradle output of local Expo modules
+modules/**/android/build/

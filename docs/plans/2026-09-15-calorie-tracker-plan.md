@@ -3234,7 +3234,7 @@ export async function contribute(db: Db, f: Omit<CustomFood, 'id'> & { barcode: 
 ```
 
 
-**Step 4:** Food detail, only when `CAN_CONTRIBUTE`: for `custom:` foods with a barcode, a button "Contribute to Open Food Facts"; for `foods:` entries with a barcode, "Suggest a correction", which opens the custom food editor prefilled with the current values and the same button. Tapping it shows one sentence: "This sends the name, brand, serving and nutrition values for this barcode to Open Food Facts, the public food database. Nothing else about you is sent." with "Add a photo of the nutrition label" (expo-camera still capture, optional) and "Send". On success show "Thanks. It will be in this app's database after the next weekly build." On failure show the returned message and keep the button.
+**Step 4:** Food detail, only when `CAN_CONTRIBUTE`: for `custom:` foods with a barcode, a button "Contribute to Open Food Facts"; for `foods:` entries with a barcode, "Suggest a correction", which opens the custom food editor prefilled with the current values and the same button. Tapping it shows one sentence: "This sends the name, brand, serving and nutrition values for this barcode to Open Food Facts, the public food database, together with a random id for this install. Nothing else about you is sent." with "Add a photo of the nutrition label" (expo-camera still capture, optional) and "Send". On success show "Thanks. It will be in this app's database after the next weekly build." On failure show the returned message and keep the button.
 
 **Step 5:** Run tests, then a manual check against staging from a local build made with `OFF_APP_STAGING=1 OFF_APP_USER=<staging account> OFF_APP_PASSWORD=<its password>`: contribute a custom food, open `https://world.openfoodfacts.net/product/<barcode>` in a browser and see the values and the photo. Commit: `git add -A && git commit -m "feat: contribute foods to Open Food Facts from the app"`
 
@@ -3300,7 +3300,8 @@ const config: ExpoConfig = {
   android: {
     package: 'com.codejetnet.calorietracker',
     versionCode: Number(process.env.GITHUB_RUN_NUMBER ?? 0) + 100,   // 100 is the manual first upload; CI runs start at 101
-    permissions: [],
+    // The Health Connect plugin adds only the rationale activity; the data permissions must be declared here.
+    permissions: ['android.permission.health.READ_ACTIVE_CALORIES_BURNED', 'android.permission.health.WRITE_NUTRITION'],
   },
   extra: {   // Open Food Facts contribution account: release builds get the password from a secret; local builds may point at staging
     offUser: process.env.OFF_APP_USER ?? 'codejet-calorie-tracker',
