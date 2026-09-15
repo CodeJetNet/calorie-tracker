@@ -1,14 +1,17 @@
 import * as DocumentPicker from 'expo-document-picker';
 import * as FS from 'expo-file-system/legacy';
 import { useFocusEffect } from 'expo-router';
+import * as Sharing from 'expo-sharing';
 import { useCallback, useEffect, useState } from 'react';
 import { Button, ScrollView, Switch, Text, TextInput, View } from 'react-native';
+import { entriesToCsv } from '../../src/backup/csv';
 import { createDocument } from '../../src/backup/documents';
 import { renderReport } from '../../src/backup/report';
 import { runBackup } from '../../src/backup/scheduler';
 import { exportDiary, importDiary, validateDiaryFile, type DiaryFile } from '../../src/backup/serialize';
 import { addDays, today } from '../../src/dates';
 import { useDb } from '../../src/db/provider';
+import { entriesBetween } from '../../src/diary/entries';
 import { DEFAULT_MEALS, getJson, getSetting, goals, setSetting } from '../../src/diary/settings';
 import { fetchManifest } from '../../src/foods/update';
 import { useFoodsUpdate } from '../../src/foods/useFoodsUpdate';
@@ -34,6 +37,8 @@ export default function Settings() {
   const [restore, setRestore] = useState<DiaryFile | null>(null);   // picked and validated, awaiting Replace
   const [restoreMsg, setRestoreMsg] = useState('');
   const [armed, setArmed] = useState(false);   // first Replace tap arms, second replaces
+  const [from, setFrom] = useState(addDays(today(), -29));
+  const [to, setTo] = useState(today());
 
   const loadInstalled = useCallback(async () => {
     setInstalled({ md5: await getSetting(diary, 'foods_md5'), builtAt: await getSetting(diary, 'foods_built_at') });
@@ -97,6 +102,14 @@ export default function Settings() {
     setRestore(null); setArmed(false);
     setRestoreMsg(`Restored ${f.entries.length} entries, ${f.custom_foods.length} custom foods, ${f.recipes.length} recipes, ${f.weights.length} weights.`);
   };
+
+  const share = async (name: string, mimeType: string, content: string) => {
+    const uri = `${FS.cacheDirectory}${name}`;
+    await FS.writeAsStringAsync(uri, content);
+    await Sharing.shareAsync(uri, { mimeType, dialogTitle: 'Share diary' });
+  };
+  const shareCsv = async () => share('export.csv', 'text/csv', entriesToCsv(await entriesBetween(diary, from, to)));
+  const shareReport = async () => share('export.html', 'text/html', renderReport(await exportDiary(diary), from, to));
 
   const goalInput = (id: string) => {
     const n = BY_ID[id];
@@ -164,6 +177,14 @@ export default function Settings() {
         </>
       )}
       {!!restoreMsg && <Text style={{ color: restoreMsg.startsWith('Restored') ? undefined : '#c33' }}>{restoreMsg}</Text>}
+
+      <Text style={h}>Import and export</Text>
+      <View style={row}>
+        <Text>From</Text><TextInput value={from} onChangeText={setFrom} placeholder="YYYY-MM-DD" style={input} />
+        <Text>To</Text><TextInput value={to} onChangeText={setTo} placeholder="YYYY-MM-DD" style={input} />
+      </View>
+      <Button title="Share CSV" onPress={shareCsv} />
+      <Button title="Share report" onPress={shareReport} />
     </ScrollView>
   );
 }
