@@ -3,6 +3,7 @@ package expo.modules.createdocument
 import android.app.Activity
 import android.content.Intent
 import expo.modules.kotlin.Promise
+import expo.modules.kotlin.exception.CodedException
 import expo.modules.kotlin.modules.Module
 import expo.modules.kotlin.modules.ModuleDefinition
 
@@ -19,6 +20,7 @@ class CreateDocumentModule : Module() {
     Name("CreateDocument")
 
     AsyncFunction("createDocument") { name: String, mime: String, promise: Promise ->
+      if (pending != null) throw CodedException("Create-document dialog already open")
       val intent = Intent(Intent.ACTION_CREATE_DOCUMENT)
         .addCategory(Intent.CATEGORY_OPENABLE)
         .setType(mime)
@@ -35,13 +37,21 @@ class CreateDocumentModule : Module() {
     OnActivityResult { activity, (requestCode, resultCode, data) ->
       if (requestCode != CREATE_DOCUMENT_CODE) return@OnActivityResult
       val uri = if (resultCode == Activity.RESULT_OK) data?.data else null
-      if (uri != null) {
+      val promise = pending
+      pending = null
+      if (uri == null) {
+        promise?.resolve(null)
+        return@OnActivityResult
+      }
+      try {
+        // The whole point of this module: without the persistable grant the write dies at the next reboot.
         activity.contentResolver.takePersistableUriPermission(
           uri, Intent.FLAG_GRANT_READ_URI_PERMISSION or Intent.FLAG_GRANT_WRITE_URI_PERMISSION
         )
+        promise?.resolve(uri.toString())
+      } catch (e: SecurityException) {
+        promise?.reject("E_NOT_PERSISTABLE", "This location cannot keep a backup file. Choose another.", e)
       }
-      pending?.resolve(uri?.toString())
-      pending = null
     }
   }
 }
