@@ -77,14 +77,14 @@ Expected: `nutriments` is a list of structs with fields including `name`, `100g`
 
 **Files:** none. Output lands in `docs/plans/export-headers.md`.
 
-**Step 1:** Post a throwaway product to the staging server, which uses the public test login `off` / `off` for both HTTP auth and the API.
+**Step 1:** Create a staging account once, in a browser, at `https://world.openfoodfacts.net`. The `off` / `off` prompt is only that server's HTTP gate; staging keeps its own user database, so production accounts do not work there. Then post a throwaway product with that account. The barcode must pass the GTIN check after leading zeros are stripped; `2000000000015` does.
 
 ```bash
 curl -s -u off:off -A 'CalorieTracker/0 (spike)' -X POST https://world.openfoodfacts.net/cgi/product_jqm2.pl \
-  -d 'code=0000000000017&product_name=Spike&nutrition_data_per=100g&nutriment_energy-kcal=100&nutriment_energy-kcal_unit=kcal&nutriment_sodium=43&nutriment_sodium_unit=mg&user_id=off&password=off&app_name=CalorieTracker&app_version=0&app_uuid=spike'
+  -d "code=2000000000015&product_name=Spike&nutrition_data_per=100g&nutriment_energy-kcal=100&nutriment_energy-kcal_unit=kcal&nutriment_sodium=43&nutriment_sodium_unit=mg&user_id=$OFF_USER&password=$OFF_PASSWORD&app_name=CalorieTracker&app_version=0&app_uuid=spike"
 ```
 
-Expected: `{"status":1,"status_verbose":"fields saved"}`, and `https://world.openfoodfacts.net/product/0000000000017` shows 100 kcal and 43 mg sodium, converted from the `_unit` fields.
+Expected: `{"status":1,"status_verbose":"fields saved"}`, and `https://world.openfoodfacts.net/product/2000000000015` shows 100 kcal and 43 mg sodium, converted from the `_unit` fields.
 
 **Step 2:** Upload a photo the same way against `cgi/product_image_upload.pl` with `-F imagefield=nutrition_en -F imgupload_nutrition_en=@label.jpg` plus the same `code`, `user_id`, `password` and `app_*` fields. Expected: `"status":"status ok"` and the photo on the product page.
 
@@ -3085,7 +3085,7 @@ test('builds the Open Food Facts product form in our units', () => {
   expect(f).toMatchObject({
     code: '3017620422003', product_name: 'Nutella', brands: 'Ferrero', serving_size: '1 tbsp (15 g)', nutrition_data_per: '100g',
     'nutriment_energy-kcal': '539', 'nutriment_energy-kcal_unit': 'kcal', nutriment_proteins: '6.3', nutriment_proteins_unit: 'g',
-    nutriment_sodium: '43', nutriment_sodium_unit: 'mg', 'nutriment_vitamin-a': '12', 'nutriment_vitamin-a_unit': 'µg',
+    nutriment_sodium: '43', nutriment_sodium_unit: 'mg', 'nutriment_vitamin-a': '12', 'nutriment_vitamin-a_unit': 'mcg',
   });
   expect(Object.keys(f).some(k => k.includes('1008'))).toBe(false);   // FDC ids never leave the app
 });
@@ -3105,12 +3105,13 @@ import type { Db } from './db/types';
 import { getSetting, setSetting } from './diary/settings';
 
 const UA = 'CalorieTracker/1.0 (github.com/codejetnet/calorie-tracker)';
-// Release builds carry the app's global OFF account password in extra (Task 7.2). Without it, talk to staging with its public test login.
-const extra = (Constants.expoConfig?.extra ?? {}) as { offPassword?: string };
-const PROD = !!extra.offPassword;
-const BASE = PROD ? 'https://world.openfoodfacts.org' : 'https://world.openfoodfacts.net';
-const AUTH = PROD ? { user_id: 'codejet-calorie-tracker', password: extra.offPassword! } : { user_id: 'off', password: 'off' };
-const STAGING_HEADER = PROD ? {} : { Authorization: 'Basic ' + btoa('off:off') };
+// Release builds carry the app's global OFF account in extra (Task 7.2). Local builds may set OFF_APP_STAGING=1 with a staging
+// account created once in a browser; off/off is only the staging proxy's HTTP gate. With no password there is nothing to post with.
+const extra = (Constants.expoConfig?.extra ?? {}) as { offUser?: string; offPassword?: string; offStaging?: boolean };
+export const CAN_CONTRIBUTE = !!extra.offPassword;
+const BASE = extra.offStaging ? 'https://world.openfoodfacts.net' : 'https://world.openfoodfacts.org';
+const AUTH = { user_id: extra.offUser ?? 'codejet-calorie-tracker', password: extra.offPassword ?? '' };
+const STAGING_HEADER = extra.offStaging ? { Authorization: 'Basic ' + btoa('off:off') } : {};
 
 /** Per-100 g values in our units; OFF converts from the `_unit` field. */
 export function offFields(f: Omit<CustomFood, 'id'> & { barcode: string }): Record<string, string> {
@@ -3120,7 +3121,7 @@ export function offFields(f: Omit<CustomFood, 'id'> & { barcode: string }): Reco
   else if (f.serving_size) out.serving_size = `${f.serving_size} ${f.serving_unit ?? 'g'}`;
   for (const n of NUTRIENTS) {
     const v = f.nutrients[n.id];
-    if (n.off && v !== undefined) { out[`nutriment_${n.off}`] = String(v); out[`nutriment_${n.off}_unit`] = n.unit; }
+    if (n.off && v !== undefined) { out[`nutriment_${n.off}`] = String(v); out[`nutriment_${n.off}_unit`] = n.unit === 'µg' ? 'mcg' : n.unit; }
   }
   return out;
 }
@@ -3153,9 +3154,9 @@ export async function contribute(db: Db, f: Omit<CustomFood, 'id'> & { barcode: 
 ```
 
 
-**Step 4:** Food detail: for `custom:` foods with a barcode, a button "Contribute to Open Food Facts"; for `foods:` entries with a barcode, "Suggest a correction", which opens the custom food editor prefilled with the current values and the same button. Tapping it shows one sentence: "This sends the name, brand, serving and nutrition values for this barcode to Open Food Facts, the public food database. Nothing else about you is sent." with "Add a photo of the nutrition label" (expo-camera still capture, optional) and "Send". On success show "Thanks. It will be in this app's database after the next weekly build." On failure show the returned message and keep the button.
+**Step 4:** Food detail, only when `CAN_CONTRIBUTE`: for `custom:` foods with a barcode, a button "Contribute to Open Food Facts"; for `foods:` entries with a barcode, "Suggest a correction", which opens the custom food editor prefilled with the current values and the same button. Tapping it shows one sentence: "This sends the name, brand, serving and nutrition values for this barcode to Open Food Facts, the public food database. Nothing else about you is sent." with "Add a photo of the nutrition label" (expo-camera still capture, optional) and "Send". On success show "Thanks. It will be in this app's database after the next weekly build." On failure show the returned message and keep the button.
 
-**Step 5:** Run tests, then a manual check against staging from a local build: contribute a custom food, open `https://world.openfoodfacts.net/product/<barcode>` in a browser and see the values and the photo. Commit: `git add -A && git commit -m "feat: contribute foods to Open Food Facts from the app"`
+**Step 5:** Run tests, then a manual check against staging from a local build made with `OFF_APP_STAGING=1 OFF_APP_USER=<staging account> OFF_APP_PASSWORD=<its password>`: contribute a custom food, open `https://world.openfoodfacts.net/product/<barcode>` in a browser and see the values and the photo. Commit: `git add -A && git commit -m "feat: contribute foods to Open Food Facts from the app"`
 
 ### Task 6.2: About and attribution
 
@@ -3221,7 +3222,11 @@ const config: ExpoConfig = {
     versionCode: Number(process.env.GITHUB_RUN_NUMBER ?? 0) + 100,   // 100 is the manual first upload; CI runs start at 101
     permissions: [],
   },
-  extra: { offPassword: process.env.OFF_APP_PASSWORD ?? '' },   // release builds only; empty means the Open Food Facts staging server
+  extra: {   // Open Food Facts contribution account: release builds get the password from a secret; local builds may point at staging
+    offUser: process.env.OFF_APP_USER ?? 'codejet-calorie-tracker',
+    offPassword: process.env.OFF_APP_PASSWORD ?? '',
+    offStaging: process.env.OFF_APP_STAGING === '1',
+  },
   plugins: [
     'expo-router', 'expo-sqlite',
     ['expo-camera', { cameraPermission: 'Scan food barcodes. Nothing leaves your phone.' }],
