@@ -54,6 +54,7 @@ export default function Today() {
         <Button title="<" onPress={() => setDay(addDays(day, -1))} />
         <Text style={{ fontSize: 18 }}>{day === today() ? 'Today' : day}</Text>
         <Button title=">" onPress={() => setDay(addDays(day, 1))} />
+        <Button title="Weight" onPress={() => router.push('/weight')} />
       </View>
 
       <View style={{ padding: 12, borderRadius: 8, backgroundColor: '#f2f2f2' }}>
