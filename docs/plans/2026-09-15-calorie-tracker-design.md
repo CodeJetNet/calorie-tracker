@@ -242,7 +242,8 @@ expo-camera `onBarcodeScanned` for EAN-13, EAN-8, UPC-A, and UPC-E. Normalize to
 
 | Situation | Behavior |
 |---|---|
-| Foods download fails or hash mismatch | Try the mirror once, else keep current file, retry next day, status line in Settings |
+| Foods download fails | Try the mirror once, else keep current file, retry next day, status line in Settings |
+| Foods file fails its checksum | Keep current file, show the error; URLs are pinned per build, so a mismatch is a corrupt transfer and a retry is the fix |
 | Manifest `schemaVersion` newer than app supports | Skip download, Settings says "update the app to get new food data" |
 | Backup file write fails or its URI is revoked | Set pending flag, small banner on Today, retry on next foreground; Settings offers "Set up backup" again |
 | Restore file has newer schema | Refuse with a clear message |
