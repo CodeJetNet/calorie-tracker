@@ -29,6 +29,7 @@ const config: ExpoConfig = {
     'expo-router', 'expo-sqlite',
     ['expo-camera', { cameraPermission: 'Scan food barcodes. Nothing leaves your phone.', recordAudioAndroid: false }],
     'react-native-health-connect',
+    ['@kingstinct/react-native-healthkit', { NSHealthShareUsageDescription: 'Show calories burned next to calories eaten.', NSHealthUpdateUsageDescription: 'Make logged meals available to other health apps you choose.' }],
     ['expo-build-properties', { android: { minSdkVersion: 26 } }],   // target SDK follows the Expo default, which tracks Play's floor
     './plugins/withBackupRules',
     './plugins/withReleaseSigning',
