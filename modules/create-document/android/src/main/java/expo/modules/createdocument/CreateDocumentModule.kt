@@ -2,6 +2,7 @@ package expo.modules.createdocument
 
 import android.app.Activity
 import android.content.Intent
+import android.net.Uri
 import expo.modules.kotlin.Promise
 import expo.modules.kotlin.exception.CodedException
 import expo.modules.kotlin.modules.Module
@@ -32,6 +33,14 @@ class CreateDocumentModule : Module() {
         pending = null
         throw e
       }
+    }
+
+    // "wt" truncates. expo-file-system opens SAF documents with "w", which some providers do not
+    // truncate, so a shrinking diary.json would keep stale bytes past the new end and stop parsing.
+    AsyncFunction("write") { uri: String, content: String ->
+      val out = appContext.reactContext?.contentResolver?.openOutputStream(Uri.parse(uri), "wt")
+        ?: throw CodedException("Cannot open $uri for writing")
+      out.use { it.write(content.toByteArray(Charsets.UTF_8)) }
     }
 
     OnActivityResult { activity, (requestCode, resultCode, data) ->

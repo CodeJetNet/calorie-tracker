@@ -1,5 +1,4 @@
-import * as FS from 'expo-file-system/legacy';
-import { createDocument as nativeCreateDocument } from '../../modules/create-document';
+import { createDocument as nativeCreateDocument, write } from '../../modules/create-document';
 
 /**
  * Ask the user to create `name` in their cloud storage through the system dialog, then write
@@ -13,7 +12,7 @@ export async function createDocument(name: string, mime: string, content: string
   return uri;
 }
 
-/** Overwrite a document from createDocument in place. Throws if the URI no longer works. */
+/** Overwrite a document from createDocument in place, truncating first. Throws if the URI no longer works. */
 export function overwrite(uri: string, content: string): Promise<void> {
-  return FS.StorageAccessFramework.writeAsStringAsync(uri, content);
+  return write(uri, content);
 }
