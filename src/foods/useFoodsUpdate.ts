@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useRef, useState } from 'react';
 import { useDb } from '../db/provider';
 import { getSetting, setSetting } from '../diary/settings';
 import { fetchManifest, installFoods, PAUSED, pickFile, SUPPORTED_SCHEMA, type Manifest, type ManifestFile } from './update';
@@ -16,6 +16,7 @@ export function useFoodsUpdate() {
   const { diary, closeFoods, reopenFoods } = useDb();
   const [s, set] = useState<State>({ manifest: null, file: null, status: 'idle', progress: 0, error: '' });
   const patch = (p: Partial<State>) => set(prev => ({ ...prev, ...p }));
+  const installing = useRef(false);
 
   const check = async (country: string) => {
     patch({ status: 'checking', error: '' });
@@ -29,18 +30,22 @@ export function useFoodsUpdate() {
   };
 
   const download = async () => {
-    if (!s.file) return;
+    if (!s.file || installing.current) return;
+    installing.current = true;
     patch({ status: 'downloading', progress: 0, error: '' });
-    await closeFoods();
     try {
-      await installFoods(s.file, progress => patch({ progress }));
+      await closeFoods();
+      await installFoods(s.file, p => {
+        const q = Math.round(p * 100) / 100;   // native chunk events are frequent; re-render only when the percent changes
+        set(prev => (prev.progress === q ? prev : { ...prev, progress: q }));
+      });
       await setSetting(diary, 'foods_md5', s.file.md5, false);
       await setSetting(diary, 'foods_built_at', s.manifest!.builtAt, false);
       patch({ status: 'current', file: null });
     } catch (e) {
       const msg = (e as Error).message;
       patch(msg === PAUSED ? { status: 'paused' } : { status: 'error', error: msg });
-    } finally { await reopenFoods(); }   // the old file is still in place after a failure
+    } finally { await reopenFoods(); installing.current = false; }   // the old file is still in place after a failure
   };
 
   return { ...s, check, download };
