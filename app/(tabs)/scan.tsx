@@ -56,11 +56,14 @@ export default function Scan() {
     else setMiss({ gtin, off: 'ask' });
   };
 
-  if (!perm?.granted) {
+  if (!perm) return null;   // permission state still loading
+  if (!perm.granted) {
     return (
       <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center', gap: 12, padding: 12 }}>
         <Text>Camera access is needed to scan barcodes.</Text>
-        <Button title="Open settings" onPress={() => Linking.openSettings()} />
+        {perm.canAskAgain
+          ? <Button title="Allow camera" onPress={() => requestPerm()} />
+          : <Button title="Open settings" onPress={() => Linking.openSettings()} />}
       </View>
     );
   }
@@ -75,7 +78,7 @@ export default function Scan() {
               <Text style={{ fontWeight: 'bold' }}>{miss.off === 'miss' ? 'Not in Open Food Facts either' : 'Not on this phone'}</Text>
               {miss.off === 'ask' && <Button title="Look up on Open Food Facts (sends only the barcode)" onPress={() => lookup(miss.gtin)} />}
               <Button title="Create custom food" onPress={() => { setMiss(null); router.push({ pathname: '/custom/[id]', params: { id: 'new', barcode: miss.gtin, day, meal } }); }} />
-              {starter && <Text style={{ color: '#666' }}>It may be in the full database. Download it in Settings.</Text>}
+              {miss.off === 'miss' && starter && <Text style={{ color: '#666' }}>It may be in the full database. Download it in Settings.</Text>}
               <Button title="Cancel" onPress={() => setMiss(null)} />
             </>
           )}

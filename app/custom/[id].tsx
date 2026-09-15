@@ -6,17 +6,16 @@ import { useDb } from '../../src/db/provider';
 import { customFood, deleteCustomFood, upsertCustomFood, type CustomFood } from '../../src/diary/customFoods';
 import { toPer100 } from '../../src/foods/per100';
 import { normalize } from '../../src/gtin';
-import { PANEL, type Nutrients } from '../../src/nutrients';
+import { BY_ID, PANEL, TOP, type Nutrients } from '../../src/nutrients';
 import { Chips } from '../../src/ui/Chips';
 
-const TOP = ['1008', '1003', '1005', '1004', '1079', '2000', '1093'];
 const row = { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 8 } as const;
 const input = { borderWidth: 1, borderColor: '#ccc', borderRadius: 8, padding: 8, minWidth: 120, flex: 1 } as const;
 
 export default function CustomFoodEditor() {
   const { diary } = useDb();
   const router = useRouter();
-  const p = useLocalSearchParams<{ id: string; barcode?: string; prefill?: string; day?: string; meal?: string; pick?: string }>();
+  const p = useLocalSearchParams<{ id: string; barcode?: string; day?: string; meal?: string; pick?: string }>();
   const isNew = p.id === 'new';
   const [id] = useState(() => (isNew ? Crypto.randomUUID() : p.id));
   const [f, setF] = useState({ name: '', brand: '', barcode: p.barcode ?? '', serving_size: '', serving_desc: '' });
@@ -28,15 +27,15 @@ export default function CustomFoodEditor() {
 
   useEffect(() => {
     (async () => {
-      const src: Partial<CustomFood> | null = isNew ? (p.prefill ? JSON.parse(p.prefill) : null) : await customFood(diary, p.id);
+      const src: CustomFood | null = isNew ? null : await customFood(diary, p.id);
       if (!src) return;
       setF({ name: src.name ?? '', brand: src.brand ?? '', barcode: src.barcode ?? p.barcode ?? '', serving_size: src.serving_size ? String(src.serving_size) : '', serving_desc: src.serving_desc ?? '' });
       setUnit(src.serving_unit ?? 'g');
-      setVals(Object.fromEntries(Object.entries(src.nutrients ?? {}).map(([k, v]) => [k, String(v)])));
+      setVals(Object.fromEntries(Object.entries(src.nutrients).map(([k, v]) => [k, String(v)])));
     })();
   }, []);
 
-  const size = Number(f.serving_size);
+  const size = Number(f.serving_size.replace(',', '.'));
   const basis = perServing ? size : 100;
   const barcode = f.barcode.trim() ? normalize(f.barcode) : null;
   const badBarcode = !!f.barcode.trim() && !barcode;
@@ -44,7 +43,7 @@ export default function CustomFoodEditor() {
 
   const save = async () => {
     const raw: Nutrients = {};
-    for (const [k, v] of Object.entries(vals)) { const n = Number(v); if (v.trim() && Number.isFinite(n)) raw[k] = n; }
+    for (const [k, v] of Object.entries(vals)) { const n = Number(v.replace(',', '.')); if (v.trim() && Number.isFinite(n)) raw[k] = n; }
     await upsertCustomFood(diary, {
       id, name: f.name.trim(), brand: f.brand.trim() || null, barcode,
       serving_size: size > 0 ? size : null, serving_unit: size > 0 ? unit : null, serving_desc: f.serving_desc.trim() || null,
@@ -65,7 +64,7 @@ export default function CustomFoodEditor() {
     </View>
   );
   const nutrient = (nid: string) => {
-    const n = PANEL.find(x => x.id === nid)!;
+    const n = BY_ID[nid];
     return (
       <View key={nid} style={row}>
         <Text>{n.name} ({n.unit})</Text>

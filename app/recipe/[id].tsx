@@ -12,7 +12,7 @@ const input = { borderWidth: 1, borderColor: '#ccc', borderRadius: 8, padding: 8
 export default function RecipeEditor() {
   const { diary } = useDb();
   const router = useRouter();
-  const p = useLocalSearchParams<{ id: string; picked?: string }>();
+  const p = useLocalSearchParams<{ id: string; picked?: string; day?: string; meal?: string; pick?: string }>();
   const isNew = p.id === 'new';
   const [id] = useState(() => (isNew ? Crypto.randomUUID() : p.id));
   const [name, setName] = useState('');
@@ -37,7 +37,7 @@ export default function RecipeEditor() {
 
   const save = async () => {
     await upsertRecipe(diary, { id, name: name.trim(), servings, ingredients, nutrients: perServing });
-    router.replace({ pathname: '/food/[ref]', params: { ref: `recipe:${id}` } });
+    router.replace({ pathname: '/food/[ref]', params: { ref: `recipe:${id}`, day: p.day, meal: p.meal, pick: p.pick } });
   };
   const del = async () => {
     if (!confirm) return setConfirm(true);

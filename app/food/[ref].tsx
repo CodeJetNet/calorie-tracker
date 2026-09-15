@@ -7,11 +7,10 @@ import { addDays, today } from '../../src/dates';
 import { addEntry, entry as loadEntry, updateEntry, type Entry } from '../../src/diary/entries';
 import { DEFAULT_MEALS, getJson } from '../../src/diary/settings';
 import { resolve, type Resolved } from '../../src/foods/resolve';
-import { BY_ID, PANEL, scale } from '../../src/nutrients';
+import { BY_ID, PANEL, scale, TOP } from '../../src/nutrients';
 import { Chips } from '../../src/ui/Chips';
 import { fmt } from '../../src/ui/NutrientBar';
 
-const TOP = ['1008', '1003', '1005', '1004', '1079', '2000', '1093'];
 const row = { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' } as const;
 
 export default function FoodDetail() {
@@ -35,7 +34,7 @@ export default function FoodDetail() {
       const e = p.entry || p.relog ? await loadEntry(diary, p.entry ?? p.relog!) : null;
       let res = p.ref === 'entry' ? null : await resolve(p.ref, foods, diary);
       if (!res && e) {   // imported row, or the food left the database: rescale from the logged amount
-        res = { ref: p.ref, name: e.name, brand: null, per100: scale(e.nutrients, 10000 / (e.amount ?? 100)), options: [{ label: 'as logged', grams: e.amount ?? 100 }], barcode: null };
+        res = { ref: p.ref, name: e.name, brand: null, per100: scale(e.nutrients, 10000 / (e.amount || 100)), options: [{ label: 'as logged', grams: e.amount || 100 }], barcode: null };
       }
       if (!res) { setMissing(true); return; }
       if (e) {
@@ -76,7 +75,7 @@ export default function FoodDetail() {
 
   return (
     <ScrollView contentContainerStyle={{ padding: 12, gap: 12 }}>
-      <Stack.Screen options={{ title: r?.name ?? '', headerRight: () => (editPath ? <Button title="Edit" onPress={() => router.push({ pathname: editPath, params: { id } })} /> : null) }} />
+      <Stack.Screen options={{ title: r?.name ?? '', headerRight: () => (editPath ? <Button title="Edit" onPress={() => router.push({ pathname: editPath, params: { id, day: p.day, meal: p.meal, pick: p.pick } })} /> : null) }} />
       {missing && <Text>This food is no longer available.</Text>}
       {r && (
         <>
