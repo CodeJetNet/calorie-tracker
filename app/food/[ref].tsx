@@ -4,7 +4,8 @@ import { useEffect, useState } from 'react';
 import { Button, ScrollView, Text, TextInput, View } from 'react-native';
 import { useDb } from '../../src/db/provider';
 import { addDays, today } from '../../src/dates';
-import { addEntry, entry as loadEntry, updateEntry, type Entry } from '../../src/diary/entries';
+import { entry as loadEntry, type Entry } from '../../src/diary/entries';
+import { logEntry, relogEntry } from '../../src/diary/log';
 import { DEFAULT_MEALS, getJson } from '../../src/diary/settings';
 import { resolve, type Resolved } from '../../src/foods/resolve';
 import { BY_ID, PANEL, scale, TOP } from '../../src/nutrients';
@@ -63,10 +64,10 @@ export default function FoodDetail() {
       const picked = JSON.stringify({ name: r.name, amount: grams, nutrients: n, food_ref: p.ref === 'entry' ? null : p.ref });
       router.dismissTo({ pathname: '/recipe/[id]', params: { id: p.pick, picked } });
     } else if (existing) {
-      await updateEntry(diary, { ...existing, ...base, day, meal });   // keeps id, source, health_id, food_ref
+      await relogEntry(diary, { ...existing, ...base, day, meal });   // keeps id, source, food_ref
       router.back();
     } else {
-      await addEntry(diary, { id: Crypto.randomUUID(), day, meal, ...base, food_ref: p.ref === 'entry' ? null : p.ref, source: 'app', health_id: null });
+      await logEntry(diary, { id: Crypto.randomUUID(), day, meal, ...base, food_ref: p.ref === 'entry' ? null : p.ref, source: 'app', health_id: null });
       router.dismissTo('/');
     }
   };

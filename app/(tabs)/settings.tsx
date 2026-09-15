@@ -15,6 +15,7 @@ import { useDb } from '../../src/db/provider';
 import { entriesBetween } from '../../src/diary/entries';
 import { DEFAULT_MEALS, getJson, getSetting, goals, setSetting } from '../../src/diary/settings';
 import { fetchManifest } from '../../src/foods/update';
+import { available as healthAvailable, requestPermissions } from '../../src/health';
 import { useFoodsUpdate } from '../../src/foods/useFoodsUpdate';
 import { importText, type ImportResult } from '../../src/import';
 import { BY_ID, DEFAULT_TARGETS, MAIN, PANEL, type Nutrients } from '../../src/nutrients';
@@ -54,6 +55,8 @@ export default function Settings() {
   const [from, setFrom] = useState(addDays(today(), -29));
   const [to, setTo] = useState(today());
   const [imports, setImports] = useState<string[]>([]);   // one line per imported file
+  const [health, setHealth] = useState(false);
+  const [healthDenied, setHealthDenied] = useState(false);
 
   const loadInstalled = useCallback(async () => {
     setInstalled({ md5: await getSetting(diary, 'foods_md5'), builtAt: await getSetting(diary, 'foods_built_at') });
@@ -70,6 +73,7 @@ export default function Settings() {
       setMealsText((await getJson<string[]>(diary, 'meals', DEFAULT_MEALS)).join(', '));
       setCountry((await getSetting(diary, 'foods_country')) ?? 'US');
       setOff((await getSetting(diary, 'off_lookup')) === '1');
+      setHealth((await getSetting(diary, 'health_enabled')) === '1');
       await loadInstalled();
       await loadBackup();
     })();
@@ -143,6 +147,12 @@ export default function Settings() {
       catch (e) { lines.push(`${name}: ${(e as Error).message}`); }
       setImports([...lines]);
     }
+  };
+
+  const toggleHealth = async (v: boolean) => {   // on: only after Health Connect grants both permissions, else the switch snaps back
+    const on = v && (await requestPermissions());
+    setHealth(on); setHealthDenied(v && !on);
+    await setSetting(diary, 'health_enabled', on ? '1' : '0');
   };
 
   const goalInput = (id: string) => {
@@ -221,6 +231,18 @@ export default function Settings() {
       <Button title="Share report" onPress={shareReport} />
       <Button title="Import Cronometer file" onPress={importFile} />
       {imports.map((m, i) => <Text key={i}>{m}</Text>)}
+
+      {healthAvailable && (
+        <>
+          <Text style={h}>Health</Text>
+          <View style={row}>
+            <Text style={{ flex: 1 }}>Sync with Health Connect</Text>
+            <Switch value={health} onValueChange={toggleHealth} />
+          </View>
+          <Text style={{ color: '#666' }}>Reads active calories burned and writes the meals you log as nutrition records.</Text>
+          {healthDenied && <Text style={{ color: '#c33' }}>Permission not granted. Health Connect may need to be installed or updated.</Text>}
+        </>
+      )}
     </ScrollView>
   );
 }
