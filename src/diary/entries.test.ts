@@ -37,6 +37,6 @@ test('recentEntries lists distinct names, latest day first, with no extra fields
   await addEntry(db, e('c', '2026-09-15', { name: 'Oats' }));
   const recents = await recentEntries(db);
   expect(recents.map(x => x.name)).toEqual(['Nutella', 'Oats']);
-  expect([e('a', '2026-09-14'), e('b', '2026-09-16')]).toContainEqual(recents[0]);
+  expect(recents[0]).toEqual(e('b', '2026-09-16'));   // the latest row for a repeated name, so re-logging pre-fills the last amount
   expect(recents[1]).toEqual(e('c', '2026-09-15', { name: 'Oats' }));
 });

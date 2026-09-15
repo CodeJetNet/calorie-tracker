@@ -55,5 +55,5 @@ export async function entriesBetween(db: Db, from: string, to: string): Promise<
 
 /** Most recently logged distinct names, for the Search screen's "recents". */
 export async function recentEntries(db: Db, limit = 50): Promise<Entry[]> {
-  return (await db.all<Row>(`SELECT ${COLS} FROM entries GROUP BY name ORDER BY max(day) DESC, max(created_at) DESC LIMIT ?`, [limit])).map(fromRow);
+  return (await db.all<Row>(`SELECT ${COLS} FROM entries WHERE rowid IN (SELECT max(rowid) FROM entries GROUP BY name) ORDER BY day DESC, created_at DESC, rowid DESC LIMIT ?`, [limit])).map(fromRow);
 }
