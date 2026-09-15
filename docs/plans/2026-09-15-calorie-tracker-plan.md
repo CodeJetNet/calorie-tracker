@@ -2877,7 +2877,7 @@ export function parseServings(text: string): Entry[] {
     const meal = r[iGroup] || 'Uncategorized';
     const amountDesc = r[iAmount]?.trim() || null;
     const grams = amountDesc && /^([\d.]+)\s*g$/i.exec(amountDesc);
-    const key = [day, meal, r[iName], amountDesc ?? '', nutrients['1008'] ?? ''].join('|');
+    const key = [day, meal, r[iName], amountDesc ?? ''].join('|');   // never nutrient values: Cronometer recomputes them between exports
     const n = (seen.get(key) ?? 0) + 1; seen.set(key, n);
     out.push({
       id: 'cro-' + stableId(`${key}#${n}`), day, meal, name: r[iName],

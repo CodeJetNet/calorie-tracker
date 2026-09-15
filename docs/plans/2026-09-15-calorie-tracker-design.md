@@ -203,7 +203,7 @@ The foods file is excluded from Android Auto Backup through backup rules. Auto B
 - Settings, Import, document picker, sniff the header row, pick a parser.
 - Cronometer: `servings.csv` (Day, Group, Food Name, Amount, roughly 55 nutrient columns) becomes entries; `biometrics.csv` weight rows become weights. A static table maps Cronometer column names to USDA nutrient numbers.
 - MyFitnessPal: the privacy "Download Your Data" export is reportedly per entry and free for all users; its layout must be confirmed from a real export before the parser is written. The premium Nutrition Summary export is per meal and becomes one entry per meal named "MyFitnessPal <meal>".
-- Import runs in one transaction, gives each row a deterministic id from (day, meal, name, amount, energy) so a re-import skips what is already there, and reports imported and skipped counts. Any parse error aborts the whole import with a row number and reason.
+- Import runs in one transaction, gives each row a deterministic id from (day, meal, name, amount) plus an occurrence counter, never from nutrient values, which Cronometer recomputes between exports, so a re-import skips what is already there, and reports imported and skipped counts. Any parse error aborts the whole import with a row number and reason.
 - Fixtures are synthesized rows in the exact header layout of the real exports, stored under `fixtures/`. The real exports stay in `fixtures/raw/`, which is gitignored, because both repos are public.
 
 ### Export
