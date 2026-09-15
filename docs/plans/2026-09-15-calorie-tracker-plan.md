@@ -1880,6 +1880,7 @@ test('check is due after 20 to 28 hours, jittered', () => {
 
 ```ts
 // src/foods/update.ts
+import { AppState } from 'react-native';
 import * as FS from 'expo-file-system/legacy';
 import { Asset } from 'expo-asset';
 import { unzip } from 'react-native-zip-archive';
@@ -1938,19 +1939,26 @@ export async function installFoods(f: ManifestFile, onProgress?: (fraction: numb
   await FS.deleteAsync(dir, { idempotent: true });
 }
 
-/** Resumes across interruptions and app restarts: the resume state is saved every 5 MB and reused when the URL matches. */
+/**
+ * Resumes across interruptions and app restarts. Only `pauseAsync` yields a resume token, so when the app
+ * leaves the foreground the download is paused and the token saved; `downloadAsync` then resolves undefined,
+ * which surfaces as "paused", and the next tap on Download resumes from the token when the URL matches.
+ */
 const RESUME = `${FS.cacheDirectory}foods.resume.json`;
+export const PAUSED = 'paused';
 async function download(url: string, to: string, bytes: number, onProgress?: (fraction: number) => void): Promise<void> {
   let resumeData: string | undefined;
   try { const s = JSON.parse(await FS.readAsStringAsync(RESUME)); if (s.url === url) resumeData = s.resumeData; } catch { /* nothing to resume */ }
-  let saved = 0;
-  const dl = FS.createDownloadResumable(url, to, {}, p => {
-    onProgress?.(p.totalBytesWritten / bytes);
-    if (p.totalBytesWritten - saved > 5_000_000) { saved = p.totalBytesWritten; void FS.writeAsStringAsync(RESUME, JSON.stringify({ url, ...dl.savable() })); }
-  }, resumeData);
-  const r = resumeData ? await dl.resumeAsync() : await dl.downloadAsync();
-  if (!r || (r.status !== 200 && r.status !== 206)) throw new Error(`download ${r?.status}`);
-  await FS.deleteAsync(RESUME, { idempotent: true });
+  const dl = FS.createDownloadResumable(url, to, {}, p => onProgress?.(p.totalBytesWritten / bytes), resumeData);
+  const sub = AppState.addEventListener('change', async s => {
+    if (s !== 'active') { await dl.pauseAsync(); await FS.writeAsStringAsync(RESUME, JSON.stringify(dl.savable())); }
+  });
+  try {
+    const r = resumeData ? await dl.resumeAsync() : await dl.downloadAsync();
+    if (!r) throw new Error(PAUSED);
+    if (r.status !== 200 && r.status !== 206) throw new Error(`download ${r.status}`);
+    await FS.deleteAsync(RESUME, { idempotent: true });
+  } finally { sub.remove(); }
 }
 
 /** First launch: copy the bundled generic-foods file into place so search and logging work before any download. */
@@ -2331,7 +2339,7 @@ Commit: `git add -A && git commit -m "feat: weight log"`
 
 - **Goals:** four numeric inputs for energy, protein, carbs, fat, prefilled from `goals(db)`, and a "More" expander with one input per remaining `PANEL` nutrient showing its default target. On blur, store only values that differ from `DEFAULT_TARGETS` in `goals`, so a later change to the defaults still reaches users who never touched that nutrient.
 - **Meals:** one text input, comma separated, saved to `meals`. Empty falls back to `DEFAULT_MEALS`.
-- **Food database:** country picker populated from the manifest's countries (fallback list `US, CA, GB, AU, FR, DE` when offline). Shows installed `foods_built_at`, or "Starter database: generic foods only" while `foods_md5` is unset. Button "Check for update" fetches the manifest and, if the md5 differs, shows "Full database available, N MB" with a "Download" button, a progress bar, and the line "Keep the app open. If interrupted, the download resumes where it left off." Download calls `closeFoods`, `installFoods`, `reopenFoods`, then stores `foods_md5` and `foods_built_at` with `notify = false`. On error, show the message inline and keep the old database. On app foreground, the Today screen runs the manifest check when `checkDue(foods_checked_at, Date.now(), Math.random())` says so, stores `foods_checked_at`, and shows a one-line banner, "Download the full food database" while on the starter or "New food database available" afterwards, that links to Settings. Nothing downloads without a tap.
+- **Food database:** country picker populated from the manifest's countries (fallback list `US, CA, GB, AU, FR, DE` when offline). Shows installed `foods_built_at`, or "Starter database: generic foods only" while `foods_md5` is unset. Button "Check for update" fetches the manifest and, if the md5 differs, shows "Full database available, N MB" with a "Download" button, a progress bar, and the line "Keep the app open. If interrupted, the download resumes where it left off." When `installFoods` rejects with the message `PAUSED`, show "Paused. Tap Download to continue." instead of an error; the next tap resumes from the saved token. Download calls `closeFoods`, `installFoods`, `reopenFoods`, then stores `foods_md5` and `foods_built_at` with `notify = false`. On error, show the message inline and keep the old database. On app foreground, the Today screen runs the manifest check when `checkDue(foods_checked_at, Date.now(), Math.random())` says so, stores `foods_checked_at`, and shows a one-line banner, "Download the full food database" while on the starter or "New food database available" afterwards, that links to Settings. Nothing downloads without a tap.
 - **Privacy:** toggle "Look up missing barcodes on Open Food Facts automatically" bound to `off_lookup`, default off, with one sentence saying it sends only the barcode and that when off the Scan screen asks each time.
 
 Manual check: fresh install, download US, search works, Check for update says current.
