@@ -65,6 +65,7 @@ export default function FoodDetail() {
   const n = r ? scale(r.per100, grams) : {};
   const extra = Object.keys(n).filter(k => !PANEL.some(x => x.id === k));
   const valid = r && qty > 0 && (p.pick || meal);
+  const canContribute = CAN_CONTRIBUTE && !!r?.barcode && kind === 'custom';
 
   const save = async () => {
     if (!r || !option) return;
@@ -92,7 +93,7 @@ export default function FoodDetail() {
     if (camPerm?.granted || (await requestCamPerm()).granted) setContrib('photo');
   };
   const snap = async () => {
-    const pic = await cam.current?.takePictureAsync({ quality: 0.5 });
+    const pic = await cam.current?.takePictureAsync({ quality: 0.5 }).catch(() => null);
     if (pic) setPhoto(pic.uri);
     setContrib('ask');
   };
@@ -135,11 +136,11 @@ export default function FoodDetail() {
           </View>
           <Button title={p.pick ? 'Add to recipe' : existing ? 'Save' : `Add to ${meal}`} onPress={save} disabled={!valid} />
           {CAN_CONTRIBUTE && r.barcode && kind === 'foods' && <Button title="Suggest a correction" onPress={suggest} />}
-          {CAN_CONTRIBUTE && r.barcode && kind === 'custom' && contrib === 'idle' && <Button title="Contribute to Open Food Facts" onPress={() => setContrib('ask')} />}
-          {CAN_CONTRIBUTE && r.barcode && kind === 'custom' && contrib === 'done' && <Text>Thanks. It will be in this app's database after the next weekly build.</Text>}
-          {CAN_CONTRIBUTE && r.barcode && kind === 'custom' && contrib !== 'idle' && contrib !== 'done' && (
+          {canContribute && contrib === 'idle' && <Button title="Contribute to Open Food Facts" onPress={() => setContrib('ask')} />}
+          {canContribute && contrib === 'done' && <Text>Thanks. It will be in this app's database after the next weekly build.</Text>}
+          {canContribute && contrib !== 'idle' && contrib !== 'done' && (
             <>
-              <Text>This sends the name, brand, serving and nutrition values for this barcode to Open Food Facts, the public food database. Nothing else about you is sent.</Text>
+              <Text>This sends the name, brand, serving and nutrition values for this barcode to Open Food Facts, the public food database, together with a random id for this install. Nothing else about you is sent.</Text>
               {contrib === 'photo' ? (
                 <>
                   <CameraView ref={cam} style={{ height: 320 }} />
@@ -148,6 +149,7 @@ export default function FoodDetail() {
               ) : photo ? <Text style={{ color: '#666' }}>Photo added.</Text> : <Button title="Add a photo of the nutrition label" onPress={addPhoto} />}
               <Button title={contrib === 'sending' ? 'Sending...' : 'Send'} onPress={send} disabled={contrib !== 'ask'} />
               {!!contribMsg && <Text style={{ color: '#c33' }}>{contribMsg}</Text>}
+              <Button title="Cancel" onPress={() => { setContrib('idle'); setPhoto(null); setContribMsg(''); }} disabled={contrib === 'sending'} />
             </>
           )}
         </>

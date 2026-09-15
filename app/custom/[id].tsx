@@ -27,11 +27,12 @@ export default function CustomFoodEditor() {
 
   useEffect(() => {
     (async () => {
-      const src: Omit<CustomFood, 'id'> | null = isNew ? (p.prefill ? JSON.parse(p.prefill) : null) : await customFood(diary, p.id);
+      const parse = (s: string): Omit<CustomFood, 'id'> | null => { try { return JSON.parse(s); } catch { return null; } };
+      const src = isNew ? (p.prefill ? parse(p.prefill) : null) : await customFood(diary, p.id);
       if (!src) return;
       setF({ name: src.name ?? '', brand: src.brand ?? '', barcode: src.barcode ?? p.barcode ?? '', serving_size: src.serving_size ? String(src.serving_size) : '', serving_desc: src.serving_desc ?? '' });
       setUnit(src.serving_unit ?? 'g');
-      setVals(Object.fromEntries(Object.entries(src.nutrients).map(([k, v]) => [k, String(v)])));
+      setVals(Object.fromEntries(Object.entries(src.nutrients ?? {}).map(([k, v]) => [k, String(v)])));
     })();
   }, []);
 

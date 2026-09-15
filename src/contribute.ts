@@ -42,13 +42,14 @@ export async function contribute(db: Db, f: Omit<CustomFood, 'id'> & { barcode: 
     headers: { 'User-Agent': UA, 'Content-Type': 'application/x-www-form-urlencoded', ...STAGING_HEADER },
   });
   const json = await res.json().catch(() => ({}));
-  if (!res.ok || json.status !== 1) return `Open Food Facts said: ${json.status_verbose ?? res.status}`;
+  if (!res.ok || json.status !== 1) return `Open Food Facts said: ${json.status_verbose ?? `HTTP ${res.status}`}`;
   if (photoUri) {
     const form = new FormData();
     for (const [k, v] of Object.entries({ code: f.barcode, imagefield: 'nutrition_en', ...app, ...AUTH })) form.append(k, v);
     form.append('imgupload_nutrition_en', { uri: photoUri, name: 'nutrition.jpg', type: 'image/jpeg' } as unknown as Blob);
     const up = await fetch(`${BASE}/cgi/product_image_upload.pl`, { method: 'POST', body: form, headers: { 'User-Agent': UA, ...STAGING_HEADER } });
-    if (!up.ok) return 'Values saved, but the photo upload failed.';
+    const upJson = await up.json().catch(() => ({}));   // rejects an image with HTTP 200 and {"status":"status not ok"}
+    if (!up.ok || upJson.status !== 'status ok') return 'Values saved, but the photo upload failed.';
   }
   return null;
 }

@@ -7,8 +7,12 @@ const PERMS = [
   { accessType: 'write', recordType: 'Nutrition' },
 ] as const;
 
-let ready: Promise<boolean> | null = null;
-const init = () => (ready ??= (async () => (await getSdkStatus()) === SdkAvailabilityStatus.SDK_AVAILABLE && (await initialize()))());
+let ready: Promise<boolean> | null = null;   // only success is cached, so the next toggle retries after the user installs Health Connect
+const init = () => (ready ??= (async () => {
+  try { if ((await getSdkStatus()) === SdkAvailabilityStatus.SDK_AVAILABLE && (await initialize())) return true; } catch { /* not installed or failed to start */ }
+  ready = null;
+  return false;
+})());
 
 export async function requestPermissions(): Promise<boolean> {
   if (!(await init())) return false;
@@ -16,10 +20,9 @@ export async function requestPermissions(): Promise<boolean> {
   return granted.length >= PERMS.length;
 }
 
+const at = (day: string, hour: number) => { const [y, m, d] = day.split('-').map(Number); return new Date(y, m - 1, d, hour); };   // local time, as src/dates.ts
 function dayRange(day: string) {
-  const start = new Date(`${day}T00:00:00`);
-  const end = new Date(start); end.setDate(end.getDate() + 1);
-  return { operator: 'between' as const, startTime: start.toISOString(), endTime: end.toISOString() };
+  return { operator: 'between' as const, startTime: at(day, 0).toISOString(), endTime: at(day, 24).toISOString() };
 }
 
 export async function readActiveCalories(day: string): Promise<number | null> {
@@ -27,7 +30,7 @@ export async function readActiveCalories(day: string): Promise<number | null> {
     if (!(await init())) return null;
     const r = await aggregateRecord({ recordType: 'ActiveCaloriesBurned', timeRangeFilter: dayRange(day) });
     return Math.round(r.ACTIVE_CALORIES_TOTAL.inKilocalories);
-  } catch { return null; }
+  } catch { return null; }   // also a revoked permission
 }
 
 type MassUnit = 'grams' | 'milligrams' | 'micrograms';
@@ -37,7 +40,7 @@ const MEAL: Record<string, number> = { breakfast: 1, lunch: 2, dinner: 3 };
 export async function writeNutrition(e: Entry): Promise<string | null> {
   try {
     if (!(await init())) return null;
-    const start = new Date(`${e.day}T12:00:00`);
+    const start = at(e.day, 12);
     const end = new Date(start.getTime() + 60_000);
     const n = e.nutrients;
     const ids = await insertRecords([{
@@ -56,7 +59,7 @@ export async function writeNutrition(e: Entry): Promise<string | null> {
       vitaminB12: mass(n['1178'], 'micrograms'), caffeine: mass(n['1057'], 'milligrams'),
     }]);
     return ids[0] ?? null;
-  } catch { return null; }
+  } catch { return null; }   // also a revoked permission
 }
 
 export async function deleteNutrition(id: string): Promise<void> {

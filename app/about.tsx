@@ -6,7 +6,7 @@ import { useDb } from '../src/db/provider';
 import { getSetting } from '../src/diary/settings';
 
 const REPO = 'https://github.com/codejetnet/calorie-tracker';
-const link = (title: string, url: string) => <Text style={{ color: '#06c' }} onPress={() => Linking.openURL(url)}>{title}</Text>;
+const link = (title: string, url: string) => <Text style={{ color: '#06c' }} onPress={() => Linking.openURL(url).catch(() => {})}>{title}</Text>;
 
 export default function About() {
   const { diary } = useDb();

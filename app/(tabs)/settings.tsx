@@ -174,7 +174,7 @@ export default function Settings() {
   };
 
   const toggleHealth = async (v: boolean) => {   // on: only after Health Connect grants both permissions, else the switch snaps back
-    const on = v && (await requestPermissions());
+    const on = v && (await requestPermissions().catch(() => false));
     setHealth(on); setHealthDenied(v && !on);
     await setSetting(diary, 'health_enabled', on ? '1' : '0');
   };

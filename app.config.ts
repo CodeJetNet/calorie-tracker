@@ -22,6 +22,8 @@ const config: ExpoConfig = {
       monochromeImage: './assets/android-icon-monochrome.png',
     },
     predictiveBackGestureEnabled: false,
+    // The Health Connect plugin does not declare the data permissions; without these requestPermission grants nothing.
+    permissions: ['android.permission.health.READ_ACTIVE_CALORIES_BURNED', 'android.permission.health.WRITE_NUTRITION'],
   },
   web: { favicon: './assets/favicon.png' },
   extra: {   // Open Food Facts contribution account: release builds get the password from a secret; local builds may point at staging
