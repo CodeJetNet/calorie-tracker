@@ -6,7 +6,12 @@ const config: ExpoConfig = {
   version: /^v\d/.test(tag) ? tag.slice(1) : '0.0.0',
   orientation: 'portrait', userInterfaceStyle: 'light',
   icon: './assets/icon.png',
-  ios: { supportsTablet: true },
+  ios: {
+    supportsTablet: true,
+    bundleIdentifier: 'com.codejetnet.calorietracker',
+    buildNumber: String(Number(process.env.GITHUB_RUN_NUMBER ?? 0) + 100),
+    infoPlist: { NSCameraUsageDescription: 'Scan food barcodes. Nothing leaves your phone.', ITSAppUsesNonExemptEncryption: false },
+  },
   android: {
     package: 'com.codejetnet.calorietracker',
     versionCode: Number(process.env.GITHUB_RUN_NUMBER ?? 0) + 100,   // 100 is the manual first upload; CI runs start at 101
