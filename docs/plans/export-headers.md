@@ -80,3 +80,20 @@ symbol and the synonyms case-insensitively, so `µg` and `mcg` should both
 convert. An unrecognized unit is only logged and the value stored unconverted,
 so send `mcg`, which is the canonical ASCII spelling and cannot be mangled by
 form encoding.
+
+## iOS backup spike
+
+Task 8.2, 2026-09-15. Implementation: `modules/create-document/ios/CreateDocumentModule.swift`.
+`pickFolder()` presents `UIDocumentPickerViewController(forOpeningContentTypes: [.folder])`,
+opens the security scope on the picked URL, takes `url.bookmarkData()` and returns it as
+base64. `write(bookmark, name, content)` resolves the bookmark, calls
+`startAccessingSecurityScopedResource`, writes `name` inside the folder with `.atomic`
+(a whole-file replace, so a shorter write leaves no stale bytes) and stops access.
+`@react-native-documents/picker` was dropped: its `pickDirectory` returns a bookmark but
+nothing in its API resolves one after a restart, and it had no other caller.
+
+Restart check (write, force-quit, relaunch, write again): not yet run. The build machine
+has Xcode 26.6 with only the iOS 26.3 simulator runtime, which Xcode 26.6 refuses as a
+destination ("iOS 26.5 is not installed"); the 8.5 GB iOS 26.5 platform download was
+started. Run the check on the simulator with an "On My iPhone" folder, then on a device
+with iCloud Drive, and record the result here.
