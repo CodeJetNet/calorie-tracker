@@ -50,9 +50,12 @@ export default function Settings() {
   const [installed, setInstalled] = useState<{ md5: string | null; builtAt: string | null }>({ md5: null, builtAt: null });
   const [off, setOff] = useState(false);
   const [backup, setBackup] = useState<{ lastOk: string | null; pending: boolean }>({ lastOk: null, pending: false });
+  const [backupMsg, setBackupMsg] = useState('');   // outcome of the last Retry
   const [restore, setRestore] = useState<DiaryFile | null>(null);   // picked and validated, awaiting Replace
   const [restoreMsg, setRestoreMsg] = useState('');
   const [armed, setArmed] = useState(false);   // first Replace tap arms, second replaces
+  const [restoring, setRestoring] = useState(false);
+  const [exportMsg, setExportMsg] = useState('');
   const [from, setFrom] = useState(addDays(today(), -29));
   const [to, setTo] = useState(today());
   const [imports, setImports] = useState<string[]>([]);   // one line per imported file
@@ -97,16 +100,22 @@ export default function Settings() {
   const setUpBackup = async () => {   // two picked files, not a folder: Drive has no folder grant
     const file = await exportDiary(diary), t = today();
     const report = await createDocument('report.html', 'text/html', renderReport(file, addDays(t, -29), t));
-    const json = report && (await createDocument('diary.json', 'application/json', JSON.stringify(file)));
-    if (!report || !json) return;   // cancelled: store nothing, status stays "Backup not set up"
+    if (!report) return;   // cancelled: store nothing, status stays "Backup not set up"
+    const json = await createDocument('diary.json', 'application/json', JSON.stringify(file));
+    if (!json) { await FS.StorageAccessFramework.deleteAsync(report).catch(() => {}); return; }   // no orphan report.html
     await setSetting(diary, 'backup_uri_report', report, false);
     await setSetting(diary, 'backup_uri_diary', json, false);
     await setSetting(diary, 'backup_dirty', '0', false);
     await setSetting(diary, 'backup_pending', '0', false);
     await setSetting(diary, 'backup_last_ok', new Date().toISOString(), false);
+    setBackupMsg('');
     await loadBackup();
   };
-  const retryBackup = async () => { await runBackup(diary, true); await loadBackup(); };
+  const retryBackup = async () => {
+    const r = await runBackup(diary, true);
+    setBackupMsg(r === 'failed' ? 'Backup failed. Run Set up backup again.' : r === 'skipped' ? 'Retrying...' : '');
+    await loadBackup();
+  };
 
   const pickRestore = async () => {
     setRestore(null); setArmed(false); setRestoreMsg('');
@@ -118,9 +127,13 @@ export default function Settings() {
   const replace = async () => {
     if (!armed) { setArmed(true); return; }
     const f = restore!;
-    await importDiary(diary, f);
-    setRestore(null); setArmed(false);
-    setRestoreMsg(`Restored ${f.entries.length} entries, ${f.custom_foods.length} custom foods, ${f.recipes.length} recipes, ${f.weights.length} weights.`);
+    setRestoring(true);
+    try {
+      await importDiary(diary, f);
+      setRestore(null); setArmed(false);
+      setRestoreMsg(`Restored ${f.entries.length} entries, ${f.custom_foods.length} custom foods, ${f.recipes.length} recipes, ${f.weights.length} weights.`);
+    } catch (e) { setRestoreMsg((e as Error).message); }
+    finally { setRestoring(false); }
   };
 
   const share = async (name: string, mimeType: string, content: string) => {
@@ -128,24 +141,34 @@ export default function Settings() {
     await FS.writeAsStringAsync(uri, content);
     await Sharing.shareAsync(uri, { mimeType, dialogTitle: 'Share diary' });
   };
-  const shareCsv = async () => share('export.csv', 'text/csv', entriesToCsv(await entriesBetween(diary, from, to)));
-  const shareReport = async () => share('export.html', 'text/html', renderReport(await exportDiary(diary), from, to));
+  const rangeOk = () => {   // a stray year like 2926 would make renderReport walk hundreds of thousands of days
+    const ok = /^\d{4}-\d{2}-\d{2}$/.test(from) && /^\d{4}-\d{2}-\d{2}$/.test(to) && from <= to && to <= today();
+    setExportMsg(ok ? '' : 'Dates must be YYYY-MM-DD, From no later than To, and not in the future.');
+    return ok;
+  };
+  const shareCsv = async () => { if (rangeOk()) await share('export.csv', 'text/csv', entriesToCsv(await entriesBetween(diary, from, to))); };
+  const shareReport = async () => { if (rangeOk()) await share('export.html', 'text/html', renderReport(await exportDiary(diary), from, to)); };
 
   const importFile = async () => {
     const r = await DocumentPicker.getDocumentAsync({ type: ['text/*', 'application/zip', 'application/octet-stream'], copyToCacheDirectory: true });
     if (r.canceled) return;
-    let files = [r.assets[0].uri];
-    if (/\.zip$/i.test(r.assets[0].name)) {
+    const { uri, name } = r.assets[0];
+    let files = [{ uri, name }];
+    setImports([]);
+    if (/\.zip$/i.test(name)) {
       const dir = `${FS.cacheDirectory}import-unzip/`;
-      await FS.deleteAsync(dir, { idempotent: true });
-      await unzip(r.assets[0].uri, dir);
-      files = await csvsIn(dir);
+      try {
+        await FS.deleteAsync(dir, { idempotent: true });
+        await unzip(uri, dir);
+        files = (await csvsIn(dir)).sort().map(u => ({ uri: u, name: u.slice(dir.length) }));
+      } catch (e) { setImports([`${name}: ${(e as Error).message}`]); return; }
     }
     const lines: string[] = [];
-    for (const uri of files) {
-      const name = decodeURIComponent(uri.slice(uri.lastIndexOf('/') + 1)).replace(/\.csv$/i, '');
-      try { lines.push(`${name}: ${describe(await importText(diary, await FS.readAsStringAsync(uri)))}`); }
-      catch (e) { lines.push(`${name}: ${(e as Error).message}`); }
+    for (const f of files) {
+      const label = f.name.replace(/\.csv$/i, '');
+      // ponytail: whole file in memory; a years-long servings.csv is tens of MB. Upgrade path: readAsStringAsync({ position, length }) chunks fed to the parser row by row.
+      try { lines.push(`${label}: ${describe(await importText(diary, await FS.readAsStringAsync(f.uri)))}`); }
+      catch (e) { lines.push(`${label}: ${(e as Error).message}`); }
       setImports([...lines]);
     }
   };
@@ -209,7 +232,7 @@ export default function Settings() {
       <Text style={h}>Backup</Text>
       <Button title="Set up backup" onPress={setUpBackup} />
       {backup.pending ? (
-        <View style={row}><Text style={{ color: '#c33' }}>Backup failed</Text><Button title="Retry" onPress={retryBackup} /></View>
+        <View style={row}><Text style={{ color: '#c33', flex: 1 }}>{backupMsg || 'Backup failed'}</Text><Button title="Retry" onPress={retryBackup} /></View>
       ) : (
         <Text>{backup.lastOk ? `Last backup: ${new Date(backup.lastOk).toLocaleString()}` : 'Backup not set up'}</Text>
       )}
@@ -217,8 +240,8 @@ export default function Settings() {
       <Button title="Restore from backup" onPress={pickRestore} />
       {restore && (
         <>
-          <Text>{restore.entries.length} entries, {restore.custom_foods.length} custom foods, {restore.recipes.length} recipes, exported {restore.exportedAt}. This replaces everything in this app.</Text>
-          <Button title={armed ? 'Tap again to replace' : 'Replace'} color="#c33" onPress={replace} />
+          <Text>{restore.entries.length} entries, {restore.custom_foods.length} custom foods, {restore.recipes.length} recipes, exported {new Date(restore.exportedAt).toLocaleString()}. This replaces everything in this app.</Text>
+          <Button title={restoring ? 'Restoring...' : armed ? 'Tap again to replace' : 'Replace'} color="#c33" onPress={replace} disabled={restoring} />
         </>
       )}
       {!!restoreMsg && <Text style={{ color: restoreMsg.startsWith('Restored') ? undefined : '#c33' }}>{restoreMsg}</Text>}
@@ -230,6 +253,7 @@ export default function Settings() {
       </View>
       <Button title="Share CSV" onPress={shareCsv} />
       <Button title="Share report" onPress={shareReport} />
+      {!!exportMsg && <Text style={{ color: '#c33' }}>{exportMsg}</Text>}
       <Button title="Import Cronometer file" onPress={importFile} />
       {imports.map((m, i) => <Text key={i}>{m}</Text>)}
 
