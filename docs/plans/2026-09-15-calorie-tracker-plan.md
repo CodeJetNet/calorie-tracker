@@ -110,7 +110,7 @@ printf '.venv/\ncache/\nout/\n__pycache__/\n' > .gitignore
 . .venv/bin/activate && pip install -r requirements.txt
 ```
 
-**Step 2:** Write `nutrients.json`. `off` is the Open Food Facts nutriment name and `off_factor` converts OFF's gram values to the unit column. Open Food Facts stores mass nutrients in grams; USDA uses mg and µg for minerals and vitamins. `alt` lists other USDA nutrient ids that carry the same nutrient, with the factor into our unit; the build coalesces them, so a branded food that reports vitamin A only in IU still gets a value. `target` is the default daily target for one adult, taken from the FDA Daily Values; `null` means no target.
+**Step 2:** Write `nutrients.json`. `off` is the Open Food Facts nutriment name and `off_factor` converts OFF's gram values to the unit column. Open Food Facts stores mass nutrients in grams; USDA uses mg and µg for minerals and vitamins. `alt` lists other USDA nutrient ids that carry the same nutrient, with the factor into our unit; the build coalesces them, so a branded food that reports vitamin A only in IU still gets a value. `target` is the default daily target for one adult, taken from the FDA Daily Values; `null` means no target. Two factors are not unit conversions: Open Food Facts stores `alcohol` as percent by volume, so 0.789 (ethanol density) turns it into grams per 100 ml, and FDC Branded reports folate under 1190 (DFE) rather than 1177.
 
 ```json
 [
@@ -142,10 +142,10 @@ printf '.venv/\ncache/\nout/\n__pycache__/\n' > .gitignore
  {"id":"1166","key":"riboflavin","name":"Riboflavin (B2)","unit":"mg","panel":true,"off":"vitamin-b2","off_factor":1000,"target":1.3},
  {"id":"1167","key":"niacin","name":"Niacin (B3)","unit":"mg","panel":true,"off":"vitamin-pp","off_factor":1000,"target":16},
  {"id":"1175","key":"vit_b6","name":"Vitamin B6","unit":"mg","panel":true,"off":"vitamin-b6","off_factor":1000,"target":1.7},
- {"id":"1177","key":"folate","name":"Folate","unit":"µg","panel":true,"off":"vitamin-b9","off_factor":1000000,"target":400},
+ {"id":"1177","key":"folate","name":"Folate","unit":"µg","panel":true,"off":"vitamin-b9","off_factor":1000000,"alt":[["1190",1]],"target":400},
  {"id":"1178","key":"vit_b12","name":"Vitamin B12","unit":"µg","panel":true,"off":"vitamin-b12","off_factor":1000000,"target":2.4},
  {"id":"1057","key":"caffeine","name":"Caffeine","unit":"mg","panel":true,"off":"caffeine","off_factor":1000,"target":null},
- {"id":"1018","key":"alcohol","name":"Alcohol","unit":"g","panel":true,"off":"alcohol","off_factor":1,"target":null},
+ {"id":"1018","key":"alcohol","name":"Alcohol","unit":"g","panel":true,"off":"alcohol","off_factor":0.789,"target":null},
  {"id":"1051","key":"water","name":"Water","unit":"g","panel":false,"off":null,"off_factor":1,"target":null}
 ]
 ```
@@ -260,9 +260,16 @@ def test_garbage_rejected():
     assert normalize("") is None
 
 def test_upc_e_expands():
-    # the textbook example: UPC-E 04252614 is UPC-A 042100005264
+    # the textbook example: UPC-E 04252614 is UPC-A 042100005264, then one vector per expansion branch
     assert expand_upc_e("04252614") == "042100005264"
+    assert expand_upc_e("01234531") == "012300000451"
+    assert expand_upc_e("01234543") == "012340000053"
+    assert expand_upc_e("01234572") == "012345000072"
     assert normalize("04252614", symbology="upc_e") == "0042100005264"
+
+def test_all_zeros_is_not_a_barcode():
+    assert normalize("0000000000000") is None
+    assert normalize("00000000") is None
 
 def test_valid():
     assert valid("3017620422003")
@@ -348,11 +355,14 @@ ROWS = [
     ("water", 0, 0, 0, 0, None, None, True),
     ("diet_soda_rounding", 1, 0, 0.2, 0, None, None, True),
     ("missing_energy", None, 10, 10, 10, None, None, False),
-    ("energy_too_high", 950, 0, 0, 100, None, None, False),
+    ("energy_too_high", 1000, 0, 0, 100, None, None, False),
+    ("pure_oil_label_rounded", 929, 0, 0, 100, None, None, True),     # 14 g x 9 rounds to 130 on the label, 929 per 100 g
     ("macros_dont_add_up", 100, 30, 30, 30, None, None, False),     # 510 kcal implied
     ("only_energy_known", 200, None, None, None, None, None, True),
     ("negative_protein", 100, -1, 20, 2, None, None, False),
     ("macros_over_100g", 400, 60, 60, 0, None, None, False),
+    ("label_rounded_scoop", 398, 90, 6, 5, None, None, True),         # whole-gram label values scaled up sum to 101
+    ("negative_fiber", 100, 5, 20, 1, -5, None, False),
     ("beer", 43, 0.5, 3.6, 0, 0, 3.9, True),                        # 16 kcal from macros, 27 from alcohol
     ("wheat_bran", 216, 15.5, 64.5, 4.25, 42.8, None, True),         # fiber at 4 kcal/g would imply 358
 ]
@@ -377,11 +387,13 @@ def test_plausible_rule():
 # Energy check: fiber counts 2 kcal/g instead of 4 and alcohol adds 7 kcal/g, so beer, wine,
 # spirits and bran cereals survive. Band: the larger of 30 percent and 25 kcal.
 PLAUSIBLE = """
-  n1008 IS NOT NULL AND n1008 BETWEEN 0 AND 900
+  n1008 IS NOT NULL AND n1008 BETWEEN 0 AND 950
   AND (n1003 IS NULL OR n1003 BETWEEN 0 AND 100)
   AND (n1005 IS NULL OR n1005 BETWEEN 0 AND 100)
   AND (n1004 IS NULL OR n1004 BETWEEN 0 AND 100)
-  AND coalesce(n1003, 0) + coalesce(n1005, 0) + coalesce(n1004, 0) <= 100.5
+  AND (n1079 IS NULL OR n1079 BETWEEN 0 AND 100)
+  AND (n1018 IS NULL OR n1018 BETWEEN 0 AND 100)
+  AND coalesce(n1003, 0) + coalesce(n1005, 0) + coalesce(n1004, 0) <= 105
   AND (n1003 IS NULL OR n1005 IS NULL OR n1004 IS NULL
        OR abs(4 * n1003 + 4 * greatest(n1005 - coalesce(n1079, 0), 0) + 2 * coalesce(n1079, 0)
               + 9 * n1004 + 7 * coalesce(n1018, 0) - n1008) <= greatest(0.30 * n1008, 25))
