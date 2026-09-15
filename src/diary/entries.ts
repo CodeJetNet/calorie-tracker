@@ -10,10 +10,11 @@ export type Entry = {
 type Row = Omit<Entry, 'nutrients'> & { nutrients: string };
 const COLS = 'id, day, meal, name, amount, amount_desc, nutrients, food_ref, source, health_id';
 const fromRow = (r: Row): Entry => ({ ...r, nutrients: JSON.parse(r.nutrients) });
-const params = (e: Entry) => [e.id, e.day, e.meal, e.name, e.amount, e.amount_desc, JSON.stringify(e.nutrients), e.food_ref, e.source, e.health_id];
+export const entryParams = (e: Entry) => [e.id, e.day, e.meal, e.name, e.amount, e.amount_desc, JSON.stringify(e.nutrients), e.food_ref, e.source, e.health_id];
+export const INSERT_ENTRY = `INSERT INTO entries (${COLS}) VALUES (?,?,?,?,?,?,?,?,?,?)`;
 
 export async function addEntry(db: Db, e: Entry): Promise<void> {
-  await db.run(`INSERT INTO entries (${COLS}) VALUES (?,?,?,?,?,?,?,?,?,?)`, params(e));
+  await db.run(INSERT_ENTRY, entryParams(e));
   diaryChanged();
 }
 
@@ -27,7 +28,7 @@ export async function updateEntry(db: Db, e: Entry): Promise<void> {
 export async function insertEntries(db: Db, list: Entry[]): Promise<number> {
   let n = 0;
   await db.tx(async () => {
-    for (const e of list) n += (await db.run(`INSERT OR IGNORE INTO entries (${COLS}) VALUES (?,?,?,?,?,?,?,?,?,?)`, params(e))).changes;
+    for (const e of list) n += (await db.run(`INSERT OR IGNORE INTO entries (${COLS}) VALUES (?,?,?,?,?,?,?,?,?,?)`, entryParams(e))).changes;
   });
   if (n) diaryChanged();
   return n;
@@ -48,6 +49,10 @@ export async function setHealthId(db: Db, id: string, healthId: string | null): 
 export async function entry(db: Db, id: string): Promise<Entry | null> {
   const [row] = await db.all<Row>(`SELECT ${COLS} FROM entries WHERE id = ?`, [id]);
   return row ? fromRow(row) : null;
+}
+
+export async function allEntries(db: Db): Promise<Entry[]> {
+  return (await db.all<Row>(`SELECT ${COLS} FROM entries ORDER BY day, created_at`)).map(fromRow);
 }
 
 export async function entriesForDay(db: Db, day: string): Promise<Entry[]> {
