@@ -43,3 +43,6 @@ yarn-error.*
 # calorie-tracker
 *.keystore
 fixtures/raw/
+
+# starter foods file, fetched by scripts/fetch-starter.sh
+assets/foods-starter.db
