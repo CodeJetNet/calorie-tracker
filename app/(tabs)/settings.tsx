@@ -1,10 +1,12 @@
+import * as DocumentPicker from 'expo-document-picker';
+import * as FS from 'expo-file-system/legacy';
 import { useFocusEffect } from 'expo-router';
 import { useCallback, useEffect, useState } from 'react';
 import { Button, ScrollView, Switch, Text, TextInput, View } from 'react-native';
 import { createDocument } from '../../src/backup/documents';
 import { renderReport } from '../../src/backup/report';
 import { runBackup } from '../../src/backup/scheduler';
-import { exportDiary } from '../../src/backup/serialize';
+import { exportDiary, importDiary, validateDiaryFile, type DiaryFile } from '../../src/backup/serialize';
 import { addDays, today } from '../../src/dates';
 import { useDb } from '../../src/db/provider';
 import { DEFAULT_MEALS, getJson, getSetting, goals, setSetting } from '../../src/diary/settings';
@@ -29,6 +31,9 @@ export default function Settings() {
   const [installed, setInstalled] = useState<{ md5: string | null; builtAt: string | null }>({ md5: null, builtAt: null });
   const [off, setOff] = useState(false);
   const [backup, setBackup] = useState<{ lastOk: string | null; pending: boolean }>({ lastOk: null, pending: false });
+  const [restore, setRestore] = useState<DiaryFile | null>(null);   // picked and validated, awaiting Replace
+  const [restoreMsg, setRestoreMsg] = useState('');
+  const [armed, setArmed] = useState(false);   // first Replace tap arms, second replaces
 
   const loadInstalled = useCallback(async () => {
     setInstalled({ md5: await getSetting(diary, 'foods_md5'), builtAt: await getSetting(diary, 'foods_built_at') });
@@ -77,6 +82,21 @@ export default function Settings() {
     await loadBackup();
   };
   const retryBackup = async () => { await runBackup(diary, true); await loadBackup(); };
+
+  const pickRestore = async () => {
+    setRestore(null); setArmed(false); setRestoreMsg('');
+    const r = await DocumentPicker.getDocumentAsync({ type: 'application/json', copyToCacheDirectory: true });
+    if (r.canceled) return;
+    try { setRestore(validateDiaryFile(JSON.parse(await FS.readAsStringAsync(r.assets[0].uri)))); }
+    catch (e) { setRestoreMsg((e as Error).message); }
+  };
+  const replace = async () => {
+    if (!armed) { setArmed(true); return; }
+    const f = restore!;
+    await importDiary(diary, f);
+    setRestore(null); setArmed(false);
+    setRestoreMsg(`Restored ${f.entries.length} entries, ${f.custom_foods.length} custom foods, ${f.recipes.length} recipes, ${f.weights.length} weights.`);
+  };
 
   const goalInput = (id: string) => {
     const n = BY_ID[id];
@@ -136,6 +156,14 @@ export default function Settings() {
         <Text>{backup.lastOk ? `Last backup: ${new Date(backup.lastOk).toLocaleString()}` : 'Backup not set up'}</Text>
       )}
       <Text style={{ color: '#666' }}>To share with a coach, share the folder that holds report.html from your cloud app. They can open it in any browser; it refreshes every time you log.</Text>
+      <Button title="Restore from backup" onPress={pickRestore} />
+      {restore && (
+        <>
+          <Text>{restore.entries.length} entries, {restore.custom_foods.length} custom foods, {restore.recipes.length} recipes, exported {restore.exportedAt}. This replaces everything in this app.</Text>
+          <Button title={armed ? 'Tap again to replace' : 'Replace'} color="#c33" onPress={replace} />
+        </>
+      )}
+      {!!restoreMsg && <Text style={{ color: restoreMsg.startsWith('Restored') ? undefined : '#c33' }}>{restoreMsg}</Text>}
     </ScrollView>
   );
 }
