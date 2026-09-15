@@ -52,7 +52,7 @@ export async function entry(db: Db, id: string): Promise<Entry | null> {
 }
 
 export async function allEntries(db: Db): Promise<Entry[]> {
-  return (await db.all<Row>(`SELECT ${COLS} FROM entries ORDER BY day, created_at`)).map(fromRow);
+  return (await db.all<Row>(`SELECT ${COLS} FROM entries ORDER BY day, created_at, rowid`)).map(fromRow);
 }
 
 export async function entriesForDay(db: Db, day: string): Promise<Entry[]> {

@@ -9,6 +9,7 @@ import { exportDiary, importDiary, validateDiaryFile } from './serialize';
 async function seeded() {
   const db = nodeDb(); await migrate(db);
   await addEntry(db, { id: 'e1', day: '2026-09-15', meal: 'Lunch', name: 'Nutella', amount: 15, amount_desc: '1 tbsp', nutrients: { '1008': 80.85 }, food_ref: 'foods:off:3017620422003', source: 'app', health_id: null });
+  await addEntry(db, { id: 'e2', day: '2026-09-15', meal: 'Lunch', name: 'Bread', amount: 40, amount_desc: '1 slice', nutrients: { '1008': 106 }, food_ref: null, source: 'app', health_id: null });
   await upsertCustomFood(db, { id: 'c1', barcode: null, name: 'Mom soup', brand: null, serving_size: 250, serving_unit: 'ml', serving_desc: '1 bowl', nutrients: { '1008': 40 } });
   await setWeight(db, { day: '2026-09-15', kg: 80.2 });
   await setSetting(db, 'goals', '{"1008":2100}');
@@ -20,7 +21,7 @@ test('export excludes device-local settings', async () => {
   const file = await exportDiary(await seeded());
   expect(file.schemaVersion).toBe(DIARY_SCHEMA_VERSION);
   expect(file.settings).toEqual({ goals: '{"1008":2100}' });
-  expect(file.entries).toHaveLength(1);
+  expect(file.entries).toHaveLength(2);
 });
 
 test('import into an empty diary reproduces the export', async () => {

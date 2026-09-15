@@ -28,6 +28,7 @@ export function validateDiaryFile(x: unknown): DiaryFile {
   if (!f || f.app !== 'calorie-tracker' || typeof f.schemaVersion !== 'number') throw new Error('This file is not a calorie-tracker backup.');
   if (f.schemaVersion > DIARY_SCHEMA_VERSION) throw new Error('This backup was made by a newer version of the app. Update the app first.');
   for (const k of ['entries', 'custom_foods', 'recipes', 'weights'] as const) if (!Array.isArray(f[k])) throw new Error(`Backup is missing ${k}.`);
+  if (f.settings?.goals !== undefined) JSON.parse(f.settings.goals);
   return { ...f, settings: f.settings ?? {} } as DiaryFile;
 }
 
