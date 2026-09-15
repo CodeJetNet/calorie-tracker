@@ -1,4 +1,5 @@
 import type { Db } from '../db/types';
+import { diaryChanged } from '../diary/changed';
 import { insertEntries } from '../diary/entries';
 import { setWeight } from '../diary/weights';
 import { parseCsv } from './csv';
@@ -19,7 +20,8 @@ export async function importText(db: Db, text: string): Promise<ImportResult> {
   if (!kind) throw new Error('Not a Cronometer export. Expected a CSV with a recognizable header row.');
   if (kind === 'cronometer-biometrics') {
     const w = parseBiometrics(text);
-    await db.tx(async () => { for (const x of w) await setWeight(db, x); });
+    await db.tx(async () => { for (const x of w) await setWeight(db, x, false); });
+    if (w.length) diaryChanged();
     return { kind, entries: 0, weights: w.length, skipped: 0 };
   }
   const entries = parseServings(text);

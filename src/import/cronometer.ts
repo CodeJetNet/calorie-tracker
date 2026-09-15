@@ -25,6 +25,7 @@ export function parseServings(text: string): Entry[] {
   const col = (name: string) => header.indexOf(name);
   const iDay = col('Day'), iGroup = col('Group'), iName = col('Food Name'), iAmount = col('Amount');
   const nutCols = header.flatMap((h, i) => (COLUMN_MAP[h] ? [[i, COLUMN_MAP[h]] as const] : []));
+  if (!nutCols.length) throw new Error('No recognised nutrient columns in header');
   const seen = new Map<string, number>();
   const out: Entry[] = [];
   for (const r of rows) {
@@ -38,7 +39,8 @@ export function parseServings(text: string): Entry[] {
     const meal = r[iGroup] || 'Uncategorized';
     const amountDesc = r[iAmount]?.trim() || null;
     const grams = amountDesc && /^([\d.]+)\s*g$/i.exec(amountDesc);
-    const key = [day, meal, r[iName], amountDesc ?? '', nutrients['1008'] ?? ''].join('|');
+    // No nutrients in the key: Cronometer recomputes old rows from a food's current profile, so they drift between exports. The counter below makes identical rows unique.
+    const key = [day, meal, r[iName], amountDesc ?? ''].join('|');
     const n = (seen.get(key) ?? 0) + 1; seen.set(key, n);
     out.push({
       id: 'cro-' + stableId(`${key}#${n}`), day, meal, name: r[iName],
@@ -49,6 +51,8 @@ export function parseServings(text: string): Entry[] {
   return out;
 }
 
+const UNIT_TO_KG: Record<string, number> = { kg: 1, lb: 0.45359237, lbs: 0.45359237 };
+
 export function parseBiometrics(text: string): Weight[] {
   const [header, ...rows] = parseCsv(text);
   const iDay = header.indexOf('Day'), iMetric = header.indexOf('Metric'), iUnit = header.indexOf('Unit'), iAmount = header.indexOf('Amount');
@@ -57,7 +61,9 @@ export function parseBiometrics(text: string): Weight[] {
     if (r[iMetric] !== 'Weight') continue;
     const v = parseFloat(r[iAmount]);
     if (!Number.isFinite(v)) continue;
-    const kg = /lb/i.test(r[iUnit] ?? '') ? v * 0.45359237 : v;
+    const factor = UNIT_TO_KG[(r[iUnit] ?? '').trim().toLowerCase()];
+    if (factor === undefined) continue;
+    const kg = v * factor;
     byDay.set(r[iDay].slice(0, 10), Math.round(kg * 100) / 100);
   }
   return [...byDay].map(([day, kg]) => ({ day, kg }));
