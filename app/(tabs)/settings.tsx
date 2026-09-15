@@ -4,6 +4,7 @@ import { useFocusEffect } from 'expo-router';
 import * as Sharing from 'expo-sharing';
 import { useCallback, useEffect, useState } from 'react';
 import { Button, ScrollView, Switch, Text, TextInput, View } from 'react-native';
+import { unzip } from 'react-native-zip-archive';
 import { entriesToCsv } from '../../src/backup/csv';
 import { createDocument } from '../../src/backup/documents';
 import { renderReport } from '../../src/backup/report';
@@ -15,6 +16,7 @@ import { entriesBetween } from '../../src/diary/entries';
 import { DEFAULT_MEALS, getJson, getSetting, goals, setSetting } from '../../src/diary/settings';
 import { fetchManifest } from '../../src/foods/update';
 import { useFoodsUpdate } from '../../src/foods/useFoodsUpdate';
+import { importText, type ImportResult } from '../../src/import';
 import { BY_ID, DEFAULT_TARGETS, MAIN, PANEL, type Nutrients } from '../../src/nutrients';
 import { Chips } from '../../src/ui/Chips';
 
@@ -22,6 +24,18 @@ const COUNTRIES = ['US', 'CA', 'GB', 'AU', 'FR', 'DE'];   // when the manifest c
 const h = { fontWeight: 'bold', fontSize: 16, marginTop: 12 } as const;
 const row = { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 8 } as const;
 const input = { borderWidth: 1, borderColor: '#ccc', borderRadius: 8, padding: 8, minWidth: 90, textAlign: 'right' } as const;
+
+/** Every .csv under `dir` (trailing slash), any depth; an export zip may hold a folder. */
+async function csvsIn(dir: string): Promise<string[]> {
+  const out: string[] = [];
+  for (const n of await FS.readDirectoryAsync(dir)) {
+    if ((await FS.getInfoAsync(dir + n)).isDirectory) out.push(...(await csvsIn(`${dir}${n}/`)));
+    else if (/\.csv$/i.test(n)) out.push(dir + n);
+  }
+  return out;
+}
+const describe = (r: ImportResult) =>
+  r.kind === 'cronometer-biometrics' ? `${r.weights.toLocaleString()} weights added` : `${r.entries.toLocaleString()} entries added, ${r.skipped.toLocaleString()} skipped`;
 
 export default function Settings() {
   const { diary } = useDb();
@@ -39,6 +53,7 @@ export default function Settings() {
   const [armed, setArmed] = useState(false);   // first Replace tap arms, second replaces
   const [from, setFrom] = useState(addDays(today(), -29));
   const [to, setTo] = useState(today());
+  const [imports, setImports] = useState<string[]>([]);   // one line per imported file
 
   const loadInstalled = useCallback(async () => {
     setInstalled({ md5: await getSetting(diary, 'foods_md5'), builtAt: await getSetting(diary, 'foods_built_at') });
@@ -110,6 +125,25 @@ export default function Settings() {
   };
   const shareCsv = async () => share('export.csv', 'text/csv', entriesToCsv(await entriesBetween(diary, from, to)));
   const shareReport = async () => share('export.html', 'text/html', renderReport(await exportDiary(diary), from, to));
+
+  const importFile = async () => {
+    const r = await DocumentPicker.getDocumentAsync({ type: ['text/*', 'application/zip', 'application/octet-stream'], copyToCacheDirectory: true });
+    if (r.canceled) return;
+    let files = [r.assets[0].uri];
+    if (/\.zip$/i.test(r.assets[0].name)) {
+      const dir = `${FS.cacheDirectory}import-unzip/`;
+      await FS.deleteAsync(dir, { idempotent: true });
+      await unzip(r.assets[0].uri, dir);
+      files = await csvsIn(dir);
+    }
+    const lines: string[] = [];
+    for (const uri of files) {
+      const name = decodeURIComponent(uri.slice(uri.lastIndexOf('/') + 1)).replace(/\.csv$/i, '');
+      try { lines.push(`${name}: ${describe(await importText(diary, await FS.readAsStringAsync(uri)))}`); }
+      catch (e) { lines.push(`${name}: ${(e as Error).message}`); }
+      setImports([...lines]);
+    }
+  };
 
   const goalInput = (id: string) => {
     const n = BY_ID[id];
@@ -185,6 +219,8 @@ export default function Settings() {
       </View>
       <Button title="Share CSV" onPress={shareCsv} />
       <Button title="Share report" onPress={shareReport} />
+      <Button title="Import Cronometer file" onPress={importFile} />
+      {imports.map((m, i) => <Text key={i}>{m}</Text>)}
     </ScrollView>
   );
 }
