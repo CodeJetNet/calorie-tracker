@@ -5,6 +5,7 @@ module.exports = function withReleaseSigning(config) {
   return withAppBuildGradle(config, c => {
     if (!process.env.ANDROID_KEYSTORE_FILE) return c;
     let g = c.modResults.contents;
+    if (g.includes('signingConfigs.release')) return c;
     g = g.replace(/signingConfigs\s*\{/, `signingConfigs {
         release {
             storeFile file(System.getenv("ANDROID_KEYSTORE_FILE"))

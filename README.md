@@ -4,7 +4,7 @@ A free calorie and nutrient tracker for Android, iOS to follow. Log meals by sea
 
 ## Why it is free
 
-No ads, no accounts, no servers, no subscription. The maintainer pays the store fees. The food database is built weekly from [Open Food Facts](https://world.openfoodfacts.org) and [USDA FoodData Central](https://fdc.nal.usda.gov) in the [food-data](https://github.com/codejetnet/food-data) repo and served from a free CDN, so there is nothing to charge for. Your diary never leaves the device except to a backup folder you pick, or to Health Connect if you turn it on. See the [privacy policy](https://codejetnet.github.io/calorie-tracker/privacy).
+No ads, no accounts, no servers, no subscription. The maintainer pays the store fees. The food database is built weekly from [Open Food Facts](https://world.openfoodfacts.org) and [USDA FoodData Central](https://fdc.nal.usda.gov) in the [food-data](https://github.com/codejetnet/food-data) repo and served from a free CDN, so there is nothing to charge for. Your diary never leaves the device except to backup files you create through the system file dialog, on your device or in a cloud drive, or to Health Connect if you turn it on. See the [privacy policy](https://codejetnet.github.io/calorie-tracker/privacy).
 
 ## Install
 
@@ -25,7 +25,7 @@ sh scripts/fetch-starter.sh   # the generic-foods file the app ships with, gitig
 npx expo run:android
 ```
 
-`npm test` and `npm run typecheck` run the checks that CI runs on pull requests.
+CI runs `npm run typecheck`, `npm test` and `sh scripts/check-nutrients.sh` (which checks `src/nutrients.json` against food-data) on every pull request; run them locally the same way.
 
 The Contribute button is hidden unless the build has an Open Food Facts password. To test contributions without touching the real database, create an account on the staging server at <https://world.openfoodfacts.net> once and build with:
 
