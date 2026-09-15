@@ -1,0 +1,47 @@
+package expo.modules.createdocument
+
+import android.app.Activity
+import android.content.Intent
+import expo.modules.kotlin.Promise
+import expo.modules.kotlin.modules.Module
+import expo.modules.kotlin.modules.ModuleDefinition
+
+private const val CREATE_DOCUMENT_CODE = 7311
+
+/**
+ * ACTION_CREATE_DOCUMENT with a persistable grant on the result, which is what
+ * `saveDocuments` from the picker package does not do (its grant dies at reboot).
+ */
+class CreateDocumentModule : Module() {
+  private var pending: Promise? = null
+
+  override fun definition() = ModuleDefinition {
+    Name("CreateDocument")
+
+    AsyncFunction("createDocument") { name: String, mime: String, promise: Promise ->
+      val intent = Intent(Intent.ACTION_CREATE_DOCUMENT)
+        .addCategory(Intent.CATEGORY_OPENABLE)
+        .setType(mime)
+        .putExtra(Intent.EXTRA_TITLE, name)
+      pending = promise
+      try {
+        appContext.throwingActivity.startActivityForResult(intent, CREATE_DOCUMENT_CODE)
+      } catch (e: Throwable) {
+        pending = null
+        throw e
+      }
+    }
+
+    OnActivityResult { activity, (requestCode, resultCode, data) ->
+      if (requestCode != CREATE_DOCUMENT_CODE) return@OnActivityResult
+      val uri = if (resultCode == Activity.RESULT_OK) data?.data else null
+      if (uri != null) {
+        activity.contentResolver.takePersistableUriPermission(
+          uri, Intent.FLAG_GRANT_READ_URI_PERMISSION or Intent.FLAG_GRANT_WRITE_URI_PERMISSION
+        )
+      }
+      pending?.resolve(uri?.toString())
+      pending = null
+    }
+  }
+}
