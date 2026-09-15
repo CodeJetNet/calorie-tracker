@@ -4,7 +4,6 @@
   "main": "expo-router/entry",
   "dependencies": {
     "@kingstinct/react-native-healthkit": "^15.1.0",
-    "@react-native-documents/picker": "^12.0.2",
     "expo": "~57.0.23",
     "expo-asset": "~57.0.17",
     "expo-build-properties": "~57.0.18",
@@ -37,8 +36,8 @@
   },
   "scripts": {
     "start": "expo start",
-    "android": "expo start --android",
-    "ios": "expo start --ios",
+    "android": "expo run:android",
+    "ios": "expo run:ios",
     "web": "expo start --web",
     "test": "jest",
     "typecheck": "tsc --noEmit"

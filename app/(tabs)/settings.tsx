@@ -3,10 +3,10 @@ import * as FS from 'expo-file-system/legacy';
 import { useFocusEffect, useRouter } from 'expo-router';
 import * as Sharing from 'expo-sharing';
 import { useCallback, useEffect, useState } from 'react';
-import { Button, ScrollView, Switch, Text, TextInput, View } from 'react-native';
+import { Button, Platform, ScrollView, Switch, Text, TextInput, View } from 'react-native';
 import { unzip } from 'react-native-zip-archive';
 import { entriesToCsv } from '../../src/backup/csv';
-import { createDocument } from '../../src/backup/documents';
+import { createDocuments } from '../../src/backup/documents';
 import { renderReport } from '../../src/backup/report';
 import { runBackup } from '../../src/backup/scheduler';
 import { exportDiary, importDiary, validateDiaryFile, type DiaryFile } from '../../src/backup/serialize';
@@ -22,6 +22,7 @@ import { BY_ID, DEFAULT_TARGETS, MAIN, PANEL, type Nutrients } from '../../src/n
 import { Chips } from '../../src/ui/Chips';
 
 const COUNTRIES = ['US', 'CA', 'GB', 'AU', 'FR', 'DE'];   // when the manifest cannot be fetched
+const SET_UP_BACKUP = Platform.OS === 'ios' ? 'Choose backup folder' : 'Set up backup';
 const h = { fontWeight: 'bold', fontSize: 16, marginTop: 12 } as const;
 const row = { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 8 } as const;
 const input = { borderWidth: 1, borderColor: '#ccc', borderRadius: 8, padding: 8, minWidth: 90, textAlign: 'right' } as const;
@@ -97,29 +98,28 @@ export default function Settings() {
   const pickCountry = async (c: string) => { setCountry(c); await setSetting(diary, 'foods_country', c, false); };
   const download = async () => { await up.download(); await loadInstalled(); };
 
-  const setUpBackup = async () => {   // two picked files, not a folder: Drive has no folder grant
+  const setUpBackup = async () => {   // Android: two picked files, Drive has no folder grant. iOS: one folder with the same two files.
     setBackupMsg('');
     const file = await exportDiary(diary), t = today();
-    let report: string | null = null;
     try {
-      report = await createDocument('report.html', 'text/html', renderReport(file, addDays(t, -29), t));
-      if (!report) return;   // cancelled: store nothing, status stays "Backup not set up"
-      const json = await createDocument('diary.json', 'application/json', JSON.stringify(file));
-      if (!json) { await FS.StorageAccessFramework.deleteAsync(report).catch(() => {}); return; }   // no orphan report.html
-      await setSetting(diary, 'backup_uri_report', report, false);
-      await setSetting(diary, 'backup_uri_diary', json, false);
+      const uris = await createDocuments([
+        { name: 'report.html', mime: 'text/html', content: renderReport(file, addDays(t, -29), t) },
+        { name: 'diary.json', mime: 'application/json', content: JSON.stringify(file) },
+      ]);
+      if (!uris) return;   // cancelled: store nothing, status stays "Backup not set up"
+      await setSetting(diary, 'backup_uri_report', uris[0], false);
+      await setSetting(diary, 'backup_uri_diary', uris[1], false);
       await setSetting(diary, 'backup_dirty', '0', false);
       await setSetting(diary, 'backup_pending', '0', false);
       await setSetting(diary, 'backup_last_ok', new Date().toISOString(), false);
       await loadBackup();
-    } catch (e) {   // a location that refuses the persistable grant, or a failed write
-      if (report) await FS.StorageAccessFramework.deleteAsync(report).catch(() => {});
+    } catch (e) {   // a location that refuses the grant, or a failed write
       setBackupMsg((e as Error).message);
     }
   };
   const retryBackup = async () => {
     const r = await runBackup(diary, true);
-    setBackupMsg(r === 'failed' ? 'Backup failed. Run Set up backup again.' : r === 'skipped' ? 'Retrying...' : '');
+    setBackupMsg(r === 'failed' ? `Backup failed. Run ${SET_UP_BACKUP} again.` : r === 'skipped' ? 'Retrying...' : '');
     await loadBackup();
   };
 
@@ -236,7 +236,7 @@ export default function Settings() {
       <Text style={{ color: '#666' }}>Sends only the barcode. When off, the Scan screen asks each time.</Text>
 
       <Text style={h}>Backup</Text>
-      <Button title="Set up backup" onPress={setUpBackup} />
+      <Button title={SET_UP_BACKUP} onPress={setUpBackup} />
       {backup.pending ? (
         <View style={row}><Text style={{ color: '#c33', flex: 1 }}>Backup failed</Text><Button title="Retry" onPress={retryBackup} /></View>
       ) : (

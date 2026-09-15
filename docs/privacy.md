@@ -25,11 +25,11 @@ No accounts, no analytics, no crash reporting, no advertising identifiers, no lo
 
 ## Backups and sharing
 
-Backups and exports are two files you create through the system file dialog, on your device or in a cloud drive you have set up yourself. The app never uploads them anywhere on its own.
+Backups and exports are two files you create through the system file dialog (on iOS, a folder you choose in the Files app), on your device or in a cloud drive you have set up yourself. The app never uploads them anywhere on its own.
 
-## Health Connect
+## Health Connect and Apple Health
 
-Only if you enable it in Settings, the app reads your active calories burned from Health Connect to show them next to calories eaten, and writes the meals you log as nutrition records so other health apps you choose can see them. You can revoke this at any time in Health Connect or in the app's Settings.
+Only if you enable it in Settings, the app reads your active calories burned from Health Connect on Android or Apple Health on iOS to show them next to calories eaten, and writes the meals you log as nutrition records so other health apps you choose can see them. You can revoke this at any time in Health Connect, in the Health app, or in the app's Settings.
 
 ## Contact
 
