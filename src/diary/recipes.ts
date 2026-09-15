@@ -1,5 +1,5 @@
 import type { Db } from '../db/types';
-import { sum, type Nutrients } from '../nutrients';
+import { round3, sum, type Nutrients } from '../nutrients';
 import { diaryChanged } from './changed';
 
 export type Ingredient = { name: string; amount: number; nutrients: Nutrients; food_ref: string | null };  // nutrients for `amount`
@@ -8,7 +8,7 @@ export type Recipe = { id: string; name: string; servings: number; ingredients: 
 export function recipeNutrients(ingredients: Ingredient[], servings: number): Nutrients {
   const total = sum(ingredients.map(i => i.nutrients));
   const out: Nutrients = {};
-  for (const [k, v] of Object.entries(total)) out[k] = Math.round((v / servings) * 1000) / 1000;
+  for (const [k, v] of Object.entries(total)) out[k] = round3(v / servings);
   return out;
 }
 

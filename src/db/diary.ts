@@ -15,7 +15,7 @@ CREATE TABLE custom_foods (
 );
 CREATE INDEX custom_foods_barcode ON custom_foods(barcode);
 CREATE TABLE recipes (
-  id TEXT PRIMARY KEY, name TEXT NOT NULL, servings REAL NOT NULL,
+  id TEXT PRIMARY KEY, name TEXT NOT NULL, servings REAL NOT NULL CHECK (servings > 0),
   ingredients TEXT NOT NULL, nutrients TEXT NOT NULL,
   created_at TEXT NOT NULL DEFAULT (datetime('now')), updated_at TEXT NOT NULL DEFAULT (datetime('now'))
 );
@@ -26,9 +26,11 @@ CREATE TABLE settings (key TEXT PRIMARY KEY, value TEXT NOT NULL);`,
 export const DIARY_SCHEMA_VERSION = MIGRATIONS.length;
 
 export async function migrate(db: Db): Promise<void> {
-  const [{ user_version }] = await db.all<{ user_version: number }>('PRAGMA user_version');
-  for (let v = user_version; v < MIGRATIONS.length; v++) {
-    await db.exec(MIGRATIONS[v]);
-    await db.exec(`PRAGMA user_version = ${v + 1}`);
-  }
+  await db.tx(async () => {
+    const [{ user_version }] = await db.all<{ user_version: number }>('PRAGMA user_version');
+    for (let v = user_version; v < MIGRATIONS.length; v++) {
+      await db.exec(MIGRATIONS[v]);
+      await db.exec(`PRAGMA user_version = ${v + 1}`);
+    }
+  });
 }

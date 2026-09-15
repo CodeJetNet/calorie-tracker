@@ -22,5 +22,5 @@ export async function upsertCustomFood(db: Db, f: CustomFood): Promise<void> {
 export async function deleteCustomFood(db: Db, id: string) { await db.run('DELETE FROM custom_foods WHERE id = ?', [id]); diaryChanged(); }
 export async function customFood(db: Db, id: string) { const [r] = await db.all<Row>(`SELECT ${COLS} FROM custom_foods WHERE id = ?`, [id]); return r ? fromRow(r) : null; }
 export async function customFoodByBarcode(db: Db, gtin13: string) { const [r] = await db.all<Row>(`SELECT ${COLS} FROM custom_foods WHERE barcode = ?`, [gtin13]); return r ? fromRow(r) : null; }
-export async function searchCustomFoods(db: Db, q: string) { return (await db.all<Row>(`SELECT ${COLS} FROM custom_foods WHERE name LIKE ? ORDER BY updated_at DESC LIMIT 30`, [`%${q}%`])).map(fromRow); }
+export async function searchCustomFoods(db: Db, q: string) { return (await db.all<Row>(`SELECT ${COLS} FROM custom_foods WHERE name LIKE ? ESCAPE '\\' ORDER BY updated_at DESC LIMIT 30`, [`%${q.replace(/[\\%_]/g, '\\$&')}%`])).map(fromRow); }
 export async function allCustomFoods(db: Db) { return (await db.all<Row>(`SELECT ${COLS} FROM custom_foods ORDER BY name`)).map(fromRow); }

@@ -46,14 +46,14 @@ export async function setHealthId(db: Db, id: string, healthId: string | null): 
 }
 
 export async function entriesForDay(db: Db, day: string): Promise<Entry[]> {
-  return (await db.all<Row>(`SELECT ${COLS} FROM entries WHERE day = ? ORDER BY created_at`, [day])).map(fromRow);
+  return (await db.all<Row>(`SELECT ${COLS} FROM entries WHERE day = ? ORDER BY created_at, rowid`, [day])).map(fromRow);
 }
 
 export async function entriesBetween(db: Db, from: string, to: string): Promise<Entry[]> {
-  return (await db.all<Row>(`SELECT ${COLS} FROM entries WHERE day BETWEEN ? AND ? ORDER BY day, created_at`, [from, to])).map(fromRow);
+  return (await db.all<Row>(`SELECT ${COLS} FROM entries WHERE day BETWEEN ? AND ? ORDER BY day, created_at, rowid`, [from, to])).map(fromRow);
 }
 
 /** Most recently logged distinct names, for the Search screen's "recents". */
 export async function recentEntries(db: Db, limit = 50): Promise<Entry[]> {
-  return (await db.all<Row>(`SELECT ${COLS}, max(created_at) AS last FROM entries GROUP BY name ORDER BY last DESC LIMIT ?`, [limit])).map(fromRow);
+  return (await db.all<Row>(`SELECT ${COLS} FROM entries GROUP BY name ORDER BY max(day) DESC, max(created_at) DESC LIMIT ?`, [limit])).map(fromRow);
 }

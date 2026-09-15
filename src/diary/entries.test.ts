@@ -1,6 +1,6 @@
 import { nodeDb } from '../../test/nodeDb';
 import { migrate } from '../db/diary';
-import { addEntry, deleteEntry, entriesForDay, insertEntries, updateEntry, type Entry } from './entries';
+import { addEntry, deleteEntry, entriesForDay, insertEntries, recentEntries, updateEntry, type Entry } from './entries';
 
 const e = (id: string, day = '2026-09-15', over: Partial<Entry> = {}): Entry => ({
   id, day, meal: 'Lunch', name: 'Nutella', amount: 15, amount_desc: '1 tbsp',
@@ -28,4 +28,15 @@ test('insertEntries ignores duplicate ids and reports the count', async () => {
   const db = nodeDb(); await migrate(db);
   expect(await insertEntries(db, [e('a'), e('b')])).toBe(2);
   expect(await insertEntries(db, [e('a'), e('c')])).toBe(1);
+});
+
+test('recentEntries lists distinct names, latest day first, with no extra fields', async () => {
+  const db = nodeDb(); await migrate(db);
+  await addEntry(db, e('a', '2026-09-14'));
+  await addEntry(db, e('b', '2026-09-16'));
+  await addEntry(db, e('c', '2026-09-15', { name: 'Oats' }));
+  const recents = await recentEntries(db);
+  expect(recents.map(x => x.name)).toEqual(['Nutella', 'Oats']);
+  expect([e('a', '2026-09-14'), e('b', '2026-09-16')]).toContainEqual(recents[0]);
+  expect(recents[1]).toEqual(e('c', '2026-09-15', { name: 'Oats' }));
 });
