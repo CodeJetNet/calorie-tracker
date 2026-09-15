@@ -1,6 +1,6 @@
 import { nodeDb } from '../../test/nodeDb';
 import { migrate } from '../db/diary';
-import { addEntry, deleteEntry, entriesForDay, insertEntries, recentEntries, updateEntry, type Entry } from './entries';
+import { addEntry, deleteEntry, entriesForDay, entry, insertEntries, recentEntries, updateEntry, type Entry } from './entries';
 
 const e = (id: string, day = '2026-09-15', over: Partial<Entry> = {}): Entry => ({
   id, day, meal: 'Lunch', name: 'Nutella', amount: 15, amount_desc: '1 tbsp',
@@ -12,6 +12,8 @@ test('add, list, delete round trip', async () => {
   await addEntry(db, e('a'));
   await addEntry(db, e('b', '2026-09-16'));
   expect((await entriesForDay(db, '2026-09-15')).map(x => x.id)).toEqual(['a']);
+  expect(await entry(db, 'b')).toEqual(e('b', '2026-09-16'));
+  expect(await entry(db, 'zzz')).toBeNull();
   expect((await deleteEntry(db, 'a'))?.nutrients).toEqual({ '1008': 80.85, '1003': 0.945 });
   expect(await entriesForDay(db, '2026-09-15')).toEqual([]);
 });

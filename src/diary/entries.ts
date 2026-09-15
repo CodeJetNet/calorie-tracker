@@ -45,6 +45,11 @@ export async function setHealthId(db: Db, id: string, healthId: string | null): 
   await db.run('UPDATE entries SET health_id = ? WHERE id = ?', [healthId, id]);
 }
 
+export async function entry(db: Db, id: string): Promise<Entry | null> {
+  const [row] = await db.all<Row>(`SELECT ${COLS} FROM entries WHERE id = ?`, [id]);
+  return row ? fromRow(row) : null;
+}
+
 export async function entriesForDay(db: Db, day: string): Promise<Entry[]> {
   return (await db.all<Row>(`SELECT ${COLS} FROM entries WHERE day = ? ORDER BY created_at, rowid`, [day])).map(fromRow);
 }
