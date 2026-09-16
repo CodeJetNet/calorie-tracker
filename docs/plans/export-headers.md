@@ -92,8 +92,19 @@ base64. `write(bookmark, name, content)` resolves the bookmark, calls
 `@react-native-documents/picker` was dropped: its `pickDirectory` returns a bookmark but
 nothing in its API resolves one after a restart, and it had no other caller.
 
-Restart check (write, force-quit, relaunch, write again): not yet run. The build machine
-has Xcode 26.6 with only the iOS 26.3 simulator runtime, which Xcode 26.6 refuses as a
-destination ("iOS 26.5 is not installed"); the 8.5 GB iOS 26.5 platform download was
-started. Run the check on the simulator with an "On My iPhone" folder, then on a device
-with iCloud Drive, and record the result here.
+Restart check, run 2026-09-15 on the iPhone 17 Pro simulator, iOS 26.5, Release build,
+driven with idb (the terminal had no Accessibility grant for System Events). Xcode 26.6
+refuses every iOS destination until the matching iOS 26.5 simulator platform is downloaded,
+even with an iOS 26.3 runtime present.
+
+1. Settings, "Choose backup folder", Browse, "On My iPhone", Open: both files appeared in the
+   provider's storage (`Containers/Shared/AppGroup/<id>/File Provider Storage/`), Settings
+   showed "Last backup", `backup_pending` stayed 0.
+2. Force-quit (`simctl terminate`), relaunch, change the energy goal: `report.html` was
+   rewritten five seconds later with the new goal, so the bookmark resolved and the security
+   scope opened after the restart.
+3. Background the app: `diary.json` was rewritten, `backup_dirty` and `backup_pending` 0.
+
+Not run: iCloud Drive on a real device (no iCloud account on the simulator) and the
+shorter-write check; `.atomic` replaces the whole file, so a shorter write cannot leave
+stale bytes by construction.

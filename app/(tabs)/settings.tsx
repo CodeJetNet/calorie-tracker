@@ -23,6 +23,7 @@ import { Chips } from '../../src/ui/Chips';
 
 const COUNTRIES = ['US', 'CA', 'GB', 'AU', 'FR', 'DE'];   // when the manifest cannot be fetched
 const SET_UP_BACKUP = Platform.OS === 'ios' ? 'Choose backup folder' : 'Set up backup';
+const HEALTH_STORE = Platform.OS === 'ios' ? 'Apple Health' : 'Health Connect';
 const h = { fontWeight: 'bold', fontSize: 16, marginTop: 12 } as const;
 const row = { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 8 } as const;
 const input = { borderWidth: 1, borderColor: '#ccc', borderRadius: 8, padding: 8, minWidth: 90, textAlign: 'right' } as const;
@@ -268,11 +269,11 @@ export default function Settings() {
         <>
           <Text style={h}>Health</Text>
           <View style={row}>
-            <Text style={{ flex: 1 }}>Sync with Health Connect</Text>
+            <Text style={{ flex: 1 }}>Sync with {HEALTH_STORE}</Text>
             <Switch value={health} onValueChange={toggleHealth} />
           </View>
           <Text style={{ color: '#666' }}>Reads active calories burned and writes the meals you log as nutrition records.</Text>
-          {healthDenied && <Text style={{ color: '#c33' }}>Permission not granted. Health Connect may need to be installed or updated.</Text>}
+          {healthDenied && <Text style={{ color: '#c33' }}>Permission not granted. {Platform.OS === 'ios' ? 'Allow it in the Health app.' : 'Health Connect may need to be installed or updated.'}</Text>}
         </>
       )}
 
