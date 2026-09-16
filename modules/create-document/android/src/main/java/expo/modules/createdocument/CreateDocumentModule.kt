@@ -3,6 +3,7 @@ package expo.modules.createdocument
 import android.app.Activity
 import android.content.Intent
 import android.net.Uri
+import android.provider.DocumentsContract
 import expo.modules.kotlin.Promise
 import expo.modules.kotlin.exception.CodedException
 import expo.modules.kotlin.modules.Module
@@ -41,6 +42,13 @@ class CreateDocumentModule : Module() {
       val out = appContext.reactContext?.contentResolver?.openOutputStream(Uri.parse(uri), "wt")
         ?: throw CodedException("Cannot open $uri for writing")
       out.use { it.write(content.toByteArray(Charsets.UTF_8)) }
+    }
+
+    // expo-file-system only deletes documents of the external-storage provider; Drive and Downloads
+    // documents need DocumentsContract, which asks the provider that created the file.
+    AsyncFunction("delete") { uri: String ->
+      val resolver = appContext.reactContext?.contentResolver ?: throw CodedException("No content resolver")
+      if (!DocumentsContract.deleteDocument(resolver, Uri.parse(uri))) throw CodedException("Cannot delete $uri")
     }
 
     OnActivityResult { activity, (requestCode, resultCode, data) ->

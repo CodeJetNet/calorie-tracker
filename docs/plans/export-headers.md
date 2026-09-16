@@ -108,3 +108,19 @@ even with an iOS 26.3 runtime present.
 Not run: iCloud Drive on a real device (no iCloud account on the simulator) and the
 shorter-write check; `.atomic` replaces the whole file, so a shorter write cannot leave
 stale bytes by construction.
+
+## Android backup re-check after the iOS refactor
+
+2026-09-16, Medium Phone API 36.1 emulator, Release build, driven with `adb shell input` and
+`uiautomator dump`, files saved to the Downloads provider.
+
+- Set up backup: two create-document dialogs, `report.html` and `diary.json` in Downloads,
+  "Last backup" shown.
+- Force stop, relaunch, change the energy goal: `report.html` rewritten five seconds later.
+  Home button: `diary.json` rewritten with the new goal.
+- Set up backup again, save the first file, cancel the second: the new `report (1).html`
+  stayed behind. `FS.StorageAccessFramework.deleteAsync` only treats
+  `content://com.android.externalstorage` as a SAF document and throws "isn't deletable"
+  for Downloads and Google Drive documents, which the cleanup swallowed. The local module
+  now exposes `delete(uri)` over `DocumentsContract.deleteDocument`; re-run: the orphan is
+  removed and the earlier backup pair and its status stay.

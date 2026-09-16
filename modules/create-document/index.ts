@@ -13,6 +13,11 @@ export function write(uri: string, content: string): Promise<void> {
   return native().write(uri, content);
 }
 
+/** Android: delete a document from createDocument. Throws if the provider refuses. */
+export function remove(uri: string): Promise<void> {
+  return native().delete(uri);
+}
+
 /** iOS: system folder dialog. Resolves a security-scoped bookmark of the folder, or null if cancelled. */
 export function pickFolder(): Promise<string | null> {
   return native().pickFolder();

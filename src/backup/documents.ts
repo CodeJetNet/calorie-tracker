@@ -1,6 +1,5 @@
-import * as FS from 'expo-file-system/legacy';
 import { Platform } from 'react-native';
-import { createDocument, pickFolder, write, writeInFolder } from '../../modules/create-document';
+import { createDocument, pickFolder, remove, write, writeInFolder } from '../../modules/create-document';
 
 export type BackupDoc = { name: string; mime: string; content: string };
 
@@ -22,7 +21,7 @@ export async function createDocuments(docs: BackupDoc[]): Promise<string[] | nul
     return uris;
   }
   const uris: string[] = [];
-  const discard = () => Promise.all(uris.map(u => FS.StorageAccessFramework.deleteAsync(u).catch(() => {})));   // no orphans
+  const discard = () => Promise.all(uris.map(u => remove(u).catch(() => {})));   // no orphans
   try {
     for (const d of docs) {
       const uri = await createDocument(d.name, d.mime);
