@@ -10,3 +10,7 @@ test('portions matching an existing option by grams or by label are skipped', ()
 test('no serving info yields just 100 g', () => {
   expect(servingOptions({ serving_size: null, serving_unit: null, serving_desc: null }, [])).toEqual([{ label: '100 g', grams: 100 }]);
 });
+test('a food whose own serving is 100 g gets one 100 g option, not two', () => {
+  expect(servingOptions({ serving_size: 100, serving_unit: 'g', serving_desc: '100 g' }, [{ description: '1 egg', grams: 50 }]))
+    .toEqual([{ label: '100 g', grams: 100 }, { label: '1 egg', grams: 50 }]);
+});

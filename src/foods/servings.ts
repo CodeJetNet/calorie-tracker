@@ -7,7 +7,7 @@ export function servingOptions(f: HasServing, portions: Portion[]): ServingOptio
   if (f.serving_size && f.serving_size > 0) {
     out.push({ label: f.serving_desc ?? `1 serving (${f.serving_size} ${f.serving_unit ?? 'g'})`, grams: f.serving_size });
   }
-  out.push({ label: `100 ${f.serving_unit ?? 'g'}`, grams: 100 });
+  if (!out.some(o => o.grams === 100)) out.push({ label: `100 ${f.serving_unit ?? 'g'}`, grams: 100 });   // USDA generic foods declare a 100 g serving
   for (const p of portions) if (!out.some(o => o.grams === p.grams || o.label === p.description)) out.push({ label: p.description, grams: p.grams });
   return out;
 }
