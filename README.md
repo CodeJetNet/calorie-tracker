@@ -25,6 +25,8 @@ sh scripts/fetch-starter.sh   # the generic-foods file the app ships with, gitig
 npx expo run:android
 ```
 
+Colours, type, glass surfaces, components and icon assets are specified in the [design system](docs/design/design-system.md); read it before changing anything visual.
+
 CI runs `npm run typecheck`, `npm test` and `sh scripts/check-nutrients.sh` (which checks `src/nutrients.json` against food-data) on every pull request; run them locally the same way.
 
 The Contribute button is hidden unless the build has an Open Food Facts password. To test contributions without touching the real database, create an account on the staging server at <https://world.openfoodfacts.net> once and build with:
