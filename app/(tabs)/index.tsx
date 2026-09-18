@@ -1,6 +1,6 @@
 import { useFocusEffect, useRouter } from 'expo-router';
 import { useCallback, useEffect, useState } from 'react';
-import { AppState, Button, Pressable, ScrollView, Text, View } from 'react-native';
+import { AppState, Pressable, Text, View } from 'react-native';
 import { useDb } from '../../src/db/provider';
 import { addDays, today } from '../../src/dates';
 import { entriesForDay, type Entry } from '../../src/diary/entries';
@@ -9,9 +9,12 @@ import { DEFAULT_MEALS, getJson, getSetting, goals, setSetting } from '../../src
 import { checkDue, fetchManifest, pickFile, SUPPORTED_SCHEMA } from '../../src/foods/update';
 import { readActiveCalories } from '../../src/health';
 import { MAIN, PANEL, sum, type Nutrients } from '../../src/nutrients';
+import { Banner, Btn, Card, IconBtn, Line, Ring, row, Screen, Txt } from '../../src/ui/kit';
 import { fmt, NutrientBar } from '../../src/ui/NutrientBar';
+import { color, radius, shadow } from '../../src/ui/theme';
 
-const row = { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' } as const;
+const ENERGY = '1008';
+const pretty = (day: string) => new Date(`${day}T12:00:00`).toLocaleDateString(undefined, { weekday: 'short', month: 'short', day: 'numeric' });
 
 export default function Today() {
   const { diary } = useDb();
@@ -72,67 +75,75 @@ export default function Today() {
     .map(m => [m, entries.filter(e => (m === 'Other' ? !meals.includes(e.meal) : e.meal === m))] as const)
     .filter(([m, es]) => m !== 'Other' || es.length);
 
-  return (
-    <ScrollView contentContainerStyle={{ padding: 12, gap: 12 }}>
-      <View style={row}>
-        <Button title="<" onPress={() => setDay(addDays(day, -1))} />
-        <Text style={{ fontSize: 18 }}>{day === today() ? 'Today' : day}</Text>
-        <Button title=">" onPress={() => setDay(addDays(day, 1))} />
-        <Button title="Weight" onPress={() => router.push('/weight')} />
-      </View>
-      {(starter || newer) && (
-        <Pressable onPress={() => router.push('/settings')} style={{ padding: 8, borderRadius: 8, backgroundColor: '#fff3cd' }}>
-          <Text>{starter ? 'Download the full food database' : 'New food database available'}</Text>
-        </Pressable>
-      )}
-      {backupPending && (
-        <Pressable onPress={() => router.push('/settings')} style={{ padding: 8, borderRadius: 8, backgroundColor: '#f8d7da' }}>
-          <Text>Backup failed. Retry from Settings.</Text>
-        </Pressable>
-      )}
+  const eaten = totals[ENERGY] ?? 0, energyGoal = targets[ENERGY];
 
-      <View style={{ padding: 12, borderRadius: 8, backgroundColor: '#f2f2f2' }}>
-        {MAIN.map(id => <NutrientBar key={id} id={id} value={totals[id] ?? 0} goal={targets[id]} />)}
-        <Button title={more ? 'Less' : 'More'} onPress={() => setMore(!more)} />
+  return (
+    <Screen tab title={day === today() ? 'Today' : pretty(day)}
+      right={
+        <View style={{ flexDirection: 'row', gap: 8 }}>
+          <IconBtn icon="prev" label="Previous day" onPress={() => setDay(addDays(day, -1))} />
+          <IconBtn icon="next" label="Next day" onPress={() => setDay(addDays(day, 1))} />
+          <IconBtn icon="weight" label="Weight log" onPress={() => router.push('/weight')} />
+        </View>
+      }
+      overlay={deleted && (
+        <View style={{ ...row, paddingLeft: 20, paddingRight: 8, minHeight: 52, borderRadius: radius.pill, backgroundColor: color.charcoal, boxShadow: shadow.chrome }}>
+          <Txt style={{ color: color.white }}>Deleted.</Txt>
+          <Pressable onPress={undo} accessibilityRole="button" style={{ minHeight: 44, paddingHorizontal: 14, justifyContent: 'center' }}>
+            <Text style={{ color: color.green, fontSize: 16, fontWeight: '700' }}>Undo</Text>
+          </Pressable>
+        </View>
+      )}>
+      {(starter || newer) && <Banner text={starter ? 'Download the full food database' : 'New food database available'} onPress={() => router.push('/settings')} />}
+      {backupPending && <Banner kind="error" text="Backup failed. Retry from Settings." onPress={() => router.push('/settings')} />}
+
+      <Card>
+        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 16 }}>
+          <Ring size={132} width={13} frac={energyGoal ? eaten / energyGoal : 0}>
+            <Txt v="title" style={{ fontSize: 28, fontVariant: ['tabular-nums'] }}>{fmt(eaten)}</Txt>
+            <Txt v="muted">{energyGoal ? `of ${fmt(energyGoal)} kcal` : 'kcal'}</Txt>
+          </Ring>
+          <View style={{ flex: 1, gap: 10 }}>
+            {MAIN.filter(id => id !== ENERGY).map(id => <NutrientBar key={id} id={id} value={totals[id] ?? 0} goal={targets[id]} />)}
+          </View>
+        </View>
+        {burned != null && <Line label="Burned" value={`${fmt(burned)} kcal`} />}
+        {burned != null && energyGoal != null && <Line label="Remaining" value={`${fmt(energyGoal - eaten + burned)} kcal`} />}
+        <Btn kind="plain" small title={more ? 'Show less' : 'All nutrients'} onPress={() => setMore(!more)} />
         {more && PANEL.filter(n => !MAIN.includes(n.id)).map(n => {
           const v = totals[n.id] ?? 0, t = targets[n.id];
-          return <Text key={n.id}>{n.name}: {fmt(v)}{t ? ` / ${fmt(t)}` : ''} {n.unit}{t ? ` (${Math.round((v / t) * 100)}%)` : ''}</Text>;
+          return <Line key={n.id} label={n.name} value={`${fmt(v)}${t ? ` / ${fmt(t)}` : ''} ${n.unit}${t ? `  ${Math.round((v / t) * 100)}%` : ''}`} />;
         })}
-        {burned != null && <Text>Burned: {fmt(burned)} kcal</Text>}
-        {burned != null && targets['1008'] != null && <Text>Remaining: {fmt(targets['1008'] - (totals['1008'] ?? 0) + burned)} kcal</Text>}
-      </View>
+      </Card>
 
       {sections.map(([meal, es]) => (
-        <View key={meal}>
+        <Card key={meal} style={{ gap: 0 }}>
           <View style={row}>
-            <Text style={{ fontWeight: 'bold' }}>{meal}</Text>
+            <View style={{ flex: 1 }}>
+              <Txt v="headline">{meal}</Txt>
+              {es.length > 0 && <Txt v="muted">{fmt(sum(es.map(e => e.nutrients))[ENERGY] ?? 0)} kcal</Txt>}
+            </View>
             {meal !== 'Other' && (
-              <View style={{ flexDirection: 'row' }}>
-                <Button title="Add" onPress={() => router.push({ pathname: '/search', params: { day, meal } })} />
-                <Button title="Scan" onPress={() => router.push({ pathname: '/scan', params: { day, meal } })} />
-              </View>
+              <>
+                <Btn small icon="add" title="Add" onPress={() => router.push({ pathname: '/search', params: { day, meal } })} />
+                <Btn small kind="plain" icon="scan" title="Scan" onPress={() => router.push({ pathname: '/scan', params: { day, meal } })} />
+              </>
             )}
           </View>
-          {es.map(e => (
-            <Pressable key={e.id} style={{ ...row, paddingVertical: 8 }}
+          {es.map((e, i) => (
+            <Pressable key={e.id} style={{ ...row, minHeight: 52, paddingVertical: 8, marginTop: i ? 0 : 12, borderTopWidth: 1, borderTopColor: color.track }}
               onPress={() => router.push({ pathname: '/food/[ref]', params: { ref: e.food_ref ?? 'entry', entry: e.id } })}
               onLongPress={() => remove(e)}>
               <View style={{ flex: 1 }}>
-                <Text>{e.name}</Text>
-                <Text style={{ color: '#666' }}>{e.amount_desc ?? `${e.amount} g`}</Text>
+                <Txt numberOfLines={2}>{e.name}</Txt>
+                <Txt v="muted">{e.amount_desc ?? `${e.amount} g`}</Txt>
               </View>
-              <Text>{fmt(e.nutrients['1008'] ?? 0)} kcal</Text>
+              <Txt style={{ fontVariant: ['tabular-nums'] }}>{fmt(e.nutrients[ENERGY] ?? 0)} kcal</Txt>
             </Pressable>
           ))}
-        </View>
+        </Card>
       ))}
-
-      {deleted && (
-        <View style={{ ...row, padding: 12, backgroundColor: '#333', borderRadius: 8 }}>
-          <Text style={{ color: '#fff' }}>Deleted.</Text>
-          <Button title="Undo" onPress={undo} />
-        </View>
-      )}
-    </ScrollView>
+      {entries.length > 0 && <Txt v="muted" style={{ textAlign: 'center' }}>Long-press an entry to delete it.</Txt>}
+    </Screen>
   );
 }

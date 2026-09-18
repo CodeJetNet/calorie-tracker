@@ -1,13 +1,12 @@
 import * as Crypto from 'expo-crypto';
-import { Stack, useLocalSearchParams, useRouter } from 'expo-router';
+import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useEffect, useState } from 'react';
-import { Button, ScrollView, Text, TextInput, View } from 'react-native';
+import { View } from 'react-native';
 import { useDb } from '../../src/db/provider';
 import { deleteRecipe, recipe as loadRecipe, recipeNutrients, upsertRecipe, type Ingredient } from '../../src/diary/recipes';
+import { Btn, Field, Line, row, Screen, Section, Txt } from '../../src/ui/kit';
 import { fmt } from '../../src/ui/NutrientBar';
-
-const row = { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 8 } as const;
-const input = { borderWidth: 1, borderColor: '#ccc', borderRadius: 8, padding: 8, flex: 1 } as const;
+import { color } from '../../src/ui/theme';
 
 export default function RecipeEditor() {
   const { diary } = useDb();
@@ -46,24 +45,34 @@ export default function RecipeEditor() {
   };
 
   return (
-    <ScrollView contentContainerStyle={{ padding: 12, gap: 10 }} keyboardShouldPersistTaps="handled">
-      <Stack.Screen options={{ title: isNew ? 'New recipe' : 'Edit recipe' }} />
-      <View style={row}><Text>Name</Text><TextInput value={name} onChangeText={setName} style={input} /></View>
-      <View style={row}><Text>Servings</Text><TextInput value={servingsText} onChangeText={setServingsText} keyboardType="decimal-pad" style={input} /></View>
-      <Text style={{ fontWeight: 'bold' }}>Ingredients</Text>
-      {ingredients.map((i, k) => (
-        <View key={k} style={row}>
-          <View style={{ flex: 1 }}>
-            <Text>{i.name}</Text>
-            <Text style={{ color: '#666' }}>{fmt(i.amount)} g · {fmt(i.nutrients['1008'] ?? 0)} kcal</Text>
-          </View>
-          <Button title="Remove" onPress={() => setIngredients(ingredients.filter((_, j) => j !== k))} />
+    <Screen title={isNew ? 'New recipe' : 'Edit recipe'}>
+      <Section title="Recipe">
+        <View style={{ gap: 4 }}><Txt v="muted">Name</Txt><Field value={name} onChangeText={setName} accessibilityLabel="Name" /></View>
+        <View style={row}>
+          <Txt style={{ flex: 1 }}>Servings</Txt>
+          <Field value={servingsText} onChangeText={setServingsText} keyboardType="decimal-pad" accessibilityLabel="Servings" style={{ width: 96, textAlign: 'right' }} />
         </View>
-      ))}
-      <Button title="Add ingredient" onPress={() => router.push({ pathname: '/search', params: { pick: p.id } })} />
-      <Text>Per serving: {fmt(perServing['1008'] ?? 0)} kcal, {fmt(perServing['1003'] ?? 0)} g protein, {fmt(perServing['1005'] ?? 0)} g carbs, {fmt(perServing['1004'] ?? 0)} g fat</Text>
-      <Button title="Save" onPress={save} disabled={!canSave} />
-      {!isNew && <Button title={confirm ? 'Tap again to delete' : 'Delete'} color={confirm ? '#c33' : undefined} onPress={del} />}
-    </ScrollView>
+      </Section>
+      <Section title="Ingredients">
+        {ingredients.map((i, k) => (
+          <View key={k} style={{ ...row, paddingBottom: 10, borderBottomWidth: 1, borderBottomColor: color.track }}>
+            <View style={{ flex: 1 }}>
+              <Txt numberOfLines={2}>{i.name}</Txt>
+              <Txt v="muted">{fmt(i.amount)} g · {fmt(i.nutrients['1008'] ?? 0)} kcal</Txt>
+            </View>
+            <Btn kind="destructive" small title="Remove" onPress={() => setIngredients(ingredients.filter((_, j) => j !== k))} />
+          </View>
+        ))}
+        <Btn icon="add" title="Add ingredient" onPress={() => router.push({ pathname: '/search', params: { pick: p.id } })} />
+      </Section>
+      <Section title="Per serving">
+        <Line label="Energy" value={`${fmt(perServing['1008'] ?? 0)} kcal`} />
+        <Line label="Protein" value={`${fmt(perServing['1003'] ?? 0)} g`} />
+        <Line label="Carbohydrate" value={`${fmt(perServing['1005'] ?? 0)} g`} />
+        <Line label="Fat" value={`${fmt(perServing['1004'] ?? 0)} g`} />
+      </Section>
+      <Btn kind="primary" title="Save" onPress={save} disabled={!canSave} />
+      {!isNew && <Btn kind={confirm ? 'danger' : 'destructive'} title={confirm ? 'Tap again to delete' : 'Delete'} onPress={del} />}
+    </Screen>
   );
 }

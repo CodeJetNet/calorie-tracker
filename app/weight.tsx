@@ -1,14 +1,15 @@
-import { Stack, useFocusEffect } from 'expo-router';
+import { useFocusEffect } from 'expo-router';
 import { useCallback, useState } from 'react';
-import { Button, Pressable, ScrollView, Text, TextInput, View } from 'react-native';
+import { Pressable, View } from 'react-native';
 import { useDb } from '../src/db/provider';
 import { today } from '../src/dates';
 import { getSetting, setSetting } from '../src/diary/settings';
 import { allWeights, deleteWeight, setWeight, type Weight } from '../src/diary/weights';
 import { Chips } from '../src/ui/Chips';
+import { Btn, Card, Field, row, Screen, Section, Txt } from '../src/ui/kit';
+import { color } from '../src/ui/theme';
 
 const LB = 0.45359237;
-const row = { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 8 } as const;
 
 export default function WeightLog() {
   const { diary } = useDb();
@@ -32,21 +33,28 @@ export default function WeightLog() {
   const changeUnit = async (u: string) => { await setSetting(diary, 'weight_unit', u); setUnit(u as 'kg' | 'lb'); };
 
   return (
-    <ScrollView contentContainerStyle={{ padding: 12, gap: 10 }} keyboardShouldPersistTaps="handled">
-      <Stack.Screen options={{ title: 'Weight' }} />
-      <View style={row}>
-        <TextInput value={text} onChangeText={setText} keyboardType="decimal-pad" placeholder={`Today, ${unit}`}
-          style={{ borderWidth: 1, borderColor: '#ccc', borderRadius: 8, padding: 8, flex: 1 }} />
-        <Chips options={['kg', 'lb']} value={unit} onChange={changeUnit} />
-        <Button title="Save" onPress={save} disabled={!(Number(text) > 0)} />
-      </View>
-      {list.map(w => (
-        <Pressable key={w.day} onLongPress={async () => { await deleteWeight(diary, w.day); await load(); }} style={{ ...row, paddingVertical: 8 }}>
-          <Text>{w.day}</Text>
-          <Text>{show(w.kg)}</Text>
-        </Pressable>
-      ))}
-      {list.length > 0 && <Text style={{ color: '#666' }}>Long-press an entry to delete it.</Text>}
-    </ScrollView>
+    <Screen title="Weight">
+      <Card>
+        <View style={row}>
+          <Field value={text} onChangeText={setText} keyboardType="decimal-pad" placeholder={`Today, ${unit}`} accessibilityLabel={`Today's weight in ${unit}`} style={{ flex: 1 }} />
+          <Chips options={['kg', 'lb']} value={unit} onChange={changeUnit} />
+        </View>
+        <Btn kind="primary" title="Save" onPress={save} disabled={!(Number(text) > 0)} />
+      </Card>
+      {list.length > 0 && (
+        <Section title="History">
+          <View>
+            {list.map((w, i) => (
+              <Pressable key={w.day} onLongPress={async () => { await deleteWeight(diary, w.day); await load(); }}
+                style={{ ...row, minHeight: 48, borderTopWidth: i ? 1 : 0, borderTopColor: color.track }}>
+                <Txt>{w.day}</Txt>
+                <Txt style={{ fontVariant: ['tabular-nums'], fontWeight: '600' }}>{show(w.kg)}</Txt>
+              </Pressable>
+            ))}
+          </View>
+          <Txt v="muted">Long-press an entry to delete it.</Txt>
+        </Section>
+      )}
+    </Screen>
   );
 }

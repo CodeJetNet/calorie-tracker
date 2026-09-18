@@ -2,19 +2,22 @@ import { CameraView, useCameraPermissions, type BarcodeScanningResult } from 'ex
 import * as Crypto from 'expo-crypto';
 import { useFocusEffect, useLocalSearchParams, useRouter } from 'expo-router';
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { Button, Linking, Text, View } from 'react-native';
+import { Linking, StyleSheet, View } from 'react-native';
 import { useDb } from '../../src/db/provider';
 import { customFoodByBarcode, upsertCustomFood } from '../../src/diary/customFoods';
 import { getSetting } from '../../src/diary/settings';
 import { byBarcode, foodRef } from '../../src/foods/db';
 import { lookupOff } from '../../src/foods/offLookup';
 import { normalize } from '../../src/gtin';
+import { Btn, Card, Glass, Icon, Screen, TAB_BAR, Txt, useInsets } from '../../src/ui/kit';
+import { backdrop, color, radius } from '../../src/ui/theme';
 
 type Miss = { gtin: string; off: 'ask' | 'looking' | 'miss' };
 
 export default function Scan() {
   const { diary, foods } = useDb();
   const router = useRouter();
+  const insets = useInsets();
   const { day, meal } = useLocalSearchParams<{ day?: string; meal?: string }>();
   const [perm, requestPerm] = useCameraPermissions();
   const [active, setActive] = useState(false);   // camera only while this tab is focused
@@ -56,33 +59,43 @@ export default function Scan() {
     else setMiss({ gtin, off: 'ask' });
   };
 
-  if (!perm) return null;   // permission state still loading
+  if (!perm) return <View style={[{ flex: 1 }, backdrop]} />;   // permission state still loading
   if (!perm.granted) {
     return (
-      <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center', gap: 12, padding: 12 }}>
-        <Text>Camera access is needed to scan barcodes.</Text>
-        {perm.canAskAgain
-          ? <Button title="Allow camera" onPress={() => requestPerm()} />
-          : <Button title="Open settings" onPress={() => Linking.openSettings()} />}
-      </View>
+      <Screen tab title="Scan">
+        <Card style={{ alignItems: 'center', gap: 14, paddingVertical: 28 }}>
+          <Icon name="scan" size={44} tint={color.greenDeep} />
+          <Txt style={{ textAlign: 'center' }}>Camera access is needed to scan barcodes. Nothing leaves your phone.</Txt>
+          {perm.canAskAgain
+            ? <Btn kind="primary" title="Allow camera" onPress={() => requestPerm()} />
+            : <Btn kind="primary" title="Open settings" onPress={() => Linking.openSettings()} />}
+        </Card>
+      </Screen>
     );
   }
+  const pill = { alignSelf: 'center', paddingHorizontal: 16, paddingVertical: 10, borderRadius: radius.pill } as const;
   return (
-    <View style={{ flex: 1 }}>
-      {active && <CameraView style={{ flex: 1 }} barcodeScannerSettings={{ barcodeTypes: ['ean13', 'ean8', 'upc_a', 'upc_e'] }} onBarcodeScanned={miss ? undefined : onScan} />}
-      {!!note && <Text style={{ position: 'absolute', top: 24, alignSelf: 'center', padding: 8, backgroundColor: '#333', color: '#fff', borderRadius: 8 }}>{note}</Text>}
+    <View style={{ flex: 1, backgroundColor: color.charcoal }}>
+      {active && <CameraView style={StyleSheet.absoluteFill} barcodeScannerSettings={{ barcodeTypes: ['ean13', 'ean8', 'upc_a', 'upc_e'] }} onBarcodeScanned={miss ? undefined : onScan} />}
+      <View pointerEvents="none" style={[StyleSheet.absoluteFill, { alignItems: 'center', justifyContent: 'center' }]}>
+        <View style={{ width: '72%', aspectRatio: 1.5, borderRadius: radius.card, borderWidth: 3, borderColor: color.edge }} />
+      </View>
+      <Glass style={{ ...pill, position: 'absolute', top: insets.top + 12 }}>
+        <Txt style={{ fontWeight: '600' }}>{note || (meal ? `Scan a barcode for ${meal}` : 'Scan a barcode')}</Txt>
+      </Glass>
       {miss && (
-        <View style={{ padding: 12, gap: 8 }}>
-          {miss.off === 'looking' ? <Text>Looking up on Open Food Facts…</Text> : (
+        <Glass style={{ position: 'absolute', left: 16, right: 16, bottom: insets.bottom + TAB_BAR + 12, padding: 16, gap: 10 }}>
+          {miss.off === 'looking' ? <Txt>Looking up on Open Food Facts…</Txt> : (
             <>
-              <Text style={{ fontWeight: 'bold' }}>{miss.off === 'miss' ? 'Not in Open Food Facts either' : 'Not on this phone'}</Text>
-              {miss.off === 'ask' && <Button title="Look up on Open Food Facts (sends only the barcode)" onPress={() => lookup(miss.gtin)} />}
-              <Button title="Create custom food" onPress={() => { setMiss(null); router.push({ pathname: '/custom/[id]', params: { id: 'new', barcode: miss.gtin, day, meal } }); }} />
-              {miss.off === 'miss' && starter && <Text style={{ color: '#666' }}>It may be in the full database. Download it in Settings.</Text>}
-              <Button title="Cancel" onPress={() => setMiss(null)} />
+              <Txt v="headline">{miss.off === 'miss' ? 'Not in Open Food Facts either' : 'Not on this phone'}</Txt>
+              {miss.off === 'miss' && starter && <Txt v="muted">It may be in the full database. Download it in Settings.</Txt>}
+              {miss.off === 'ask' && <Btn kind="primary" title="Look up on Open Food Facts" onPress={() => lookup(miss.gtin)} />}
+              {miss.off === 'ask' && <Txt v="muted" style={{ textAlign: 'center' }}>Sends only the barcode.</Txt>}
+              <Btn kind={miss.off === 'ask' ? 'tinted' : 'primary'} title="Create custom food" onPress={() => { setMiss(null); router.push({ pathname: '/custom/[id]', params: { id: 'new', barcode: miss.gtin, day, meal } }); }} />
+              <Btn kind="plain" title="Cancel" onPress={() => setMiss(null)} />
             </>
           )}
-        </View>
+        </Glass>
       )}
     </View>
   );

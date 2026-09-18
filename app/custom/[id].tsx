@@ -1,16 +1,14 @@
 import * as Crypto from 'expo-crypto';
-import { Stack, useLocalSearchParams, useRouter } from 'expo-router';
+import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useEffect, useState } from 'react';
-import { Button, ScrollView, Text, TextInput, View, type TextInputProps } from 'react-native';
+import { View, type TextInputProps } from 'react-native';
 import { useDb } from '../../src/db/provider';
 import { customFood, deleteCustomFood, upsertCustomFood, type CustomFood } from '../../src/diary/customFoods';
 import { toPer100 } from '../../src/foods/per100';
 import { normalize } from '../../src/gtin';
 import { BY_ID, PANEL, TOP, type Nutrients } from '../../src/nutrients';
 import { Chips } from '../../src/ui/Chips';
-
-const row = { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 8 } as const;
-const input = { borderWidth: 1, borderColor: '#ccc', borderRadius: 8, padding: 8, minWidth: 120, flex: 1 } as const;
+import { Btn, Field, row, Screen, Section, Txt } from '../../src/ui/kit';
 
 export default function CustomFoodEditor() {
   const { diary } = useDb();
@@ -59,39 +57,44 @@ export default function CustomFoodEditor() {
   };
 
   const field = (key: keyof typeof f, label: string, props?: TextInputProps) => (
-    <View style={row}>
-      <Text>{label}</Text>
-      <TextInput value={f[key]} onChangeText={v => setF({ ...f, [key]: v })} style={input} {...props} />
+    <View style={{ gap: 4 }}>
+      <Txt v="muted">{label}</Txt>
+      <Field value={f[key]} onChangeText={v => setF({ ...f, [key]: v })} accessibilityLabel={label} {...props} />
     </View>
   );
   const nutrient = (nid: string) => {
     const n = BY_ID[nid];
     return (
       <View key={nid} style={row}>
-        <Text>{n.name} ({n.unit})</Text>
-        <TextInput value={vals[nid] ?? ''} onChangeText={v => setVals({ ...vals, [nid]: v })} keyboardType="decimal-pad" style={input} />
+        <Txt style={{ flex: 1 }}>{n.name} ({n.unit})</Txt>
+        <Field value={vals[nid] ?? ''} onChangeText={v => setVals({ ...vals, [nid]: v })} keyboardType="decimal-pad" accessibilityLabel={`${n.name}, ${n.unit}`} style={{ width: 104, textAlign: 'right' }} />
       </View>
     );
   };
 
   return (
-    <ScrollView contentContainerStyle={{ padding: 12, gap: 10 }} keyboardShouldPersistTaps="handled">
-      <Stack.Screen options={{ title: isNew ? 'New custom food' : 'Edit custom food' }} />
-      {field('name', 'Name')}
-      {field('brand', 'Brand')}
-      {field('barcode', 'Barcode', { keyboardType: 'number-pad' })}
-      {badBarcode && <Text style={{ color: '#c33' }}>Not a valid barcode</Text>}
-      {field('serving_size', 'Serving size', { keyboardType: 'decimal-pad' })}
-      <Chips options={['g', 'ml']} value={unit} onChange={u => setUnit(u as 'g' | 'ml')} />
-      {field('serving_desc', 'Serving description', { placeholder: '1 tbsp (15 g)' })}
-      <Text>Values are per</Text>
-      <Chips options={['serving', `100 ${unit}`]} value={perServing ? 'serving' : `100 ${unit}`} onChange={v => setPerServing(v === 'serving')} />
-      {perServing && !(size > 0) && <Text style={{ color: '#c33' }}>Enter the serving size first</Text>}
-      {TOP.map(nutrient)}
-      <Button title={more ? 'Less' : 'More'} onPress={() => setMore(!more)} />
-      {more && PANEL.filter(n => !TOP.includes(n.id)).map(n => nutrient(n.id))}
-      <Button title="Save" onPress={save} disabled={!canSave} />
-      {!isNew && <Button title={confirm ? 'Tap again to delete' : 'Delete'} color={confirm ? '#c33' : undefined} onPress={del} />}
-    </ScrollView>
+    <Screen title={isNew ? 'New custom food' : 'Edit custom food'}>
+      <Section title="Food">
+        {field('name', 'Name')}
+        {field('brand', 'Brand')}
+        {field('barcode', 'Barcode', { keyboardType: 'number-pad' })}
+        {badBarcode && <Txt v="error">Not a valid barcode</Txt>}
+      </Section>
+      <Section title="Serving">
+        {field('serving_size', 'Serving size', { keyboardType: 'decimal-pad' })}
+        <Chips options={['g', 'ml']} value={unit} onChange={u => setUnit(u as 'g' | 'ml')} />
+        {field('serving_desc', 'Serving description', { placeholder: '1 tbsp (15 g)' })}
+      </Section>
+      <Section title="Nutrition">
+        <Txt v="muted">Values are per</Txt>
+        <Chips options={['serving', `100 ${unit}`]} value={perServing ? 'serving' : `100 ${unit}`} onChange={v => setPerServing(v === 'serving')} />
+        {perServing && !(size > 0) && <Txt v="error">Enter the serving size first</Txt>}
+        {TOP.map(nutrient)}
+        <Btn kind="plain" small title={more ? 'Show less' : 'All nutrients'} onPress={() => setMore(!more)} />
+        {more && PANEL.filter(n => !TOP.includes(n.id)).map(n => nutrient(n.id))}
+      </Section>
+      <Btn kind="primary" title="Save" onPress={save} disabled={!canSave} />
+      {!isNew && <Btn kind={confirm ? 'danger' : 'destructive'} title={confirm ? 'Tap again to delete' : 'Delete'} onPress={del} />}
+    </Screen>
   );
 }

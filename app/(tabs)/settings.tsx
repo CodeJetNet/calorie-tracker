@@ -3,7 +3,7 @@ import * as FS from 'expo-file-system/legacy';
 import { useFocusEffect, useRouter } from 'expo-router';
 import * as Sharing from 'expo-sharing';
 import { useCallback, useEffect, useState } from 'react';
-import { Button, Platform, ScrollView, Switch, Text, TextInput, View } from 'react-native';
+import { Platform, Switch, View } from 'react-native';
 import { unzip } from 'react-native-zip-archive';
 import { entriesToCsv } from '../../src/backup/csv';
 import { createDocuments } from '../../src/backup/documents';
@@ -20,13 +20,14 @@ import { useFoodsUpdate } from '../../src/foods/useFoodsUpdate';
 import { importText, type ImportResult } from '../../src/import';
 import { BY_ID, DEFAULT_TARGETS, MAIN, PANEL, type Nutrients } from '../../src/nutrients';
 import { Chips } from '../../src/ui/Chips';
+import { Btn, Field, row, Screen, Section, Txt } from '../../src/ui/kit';
+import { color } from '../../src/ui/theme';
 
 const COUNTRIES = ['US', 'CA', 'GB', 'AU', 'FR', 'DE'];   // when the manifest cannot be fetched
 const SET_UP_BACKUP = Platform.OS === 'ios' ? 'Choose backup folder' : 'Set up backup';
 const HEALTH_STORE = Platform.OS === 'ios' ? 'Apple Health' : 'Health Connect';
-const h = { fontWeight: 'bold', fontSize: 16, marginTop: 12 } as const;
-const row = { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 8 } as const;
-const input = { borderWidth: 1, borderColor: '#ccc', borderRadius: 8, padding: 8, minWidth: 90, textAlign: 'right' } as const;
+const input = { minWidth: 104, textAlign: 'right' } as const;
+const toggle = { trackColor: { true: color.green, false: color.switchOff }, thumbColor: color.white } as const;
 
 /** Every .csv under `dir` (trailing slash), any depth; an export zip may hold a folder. */
 async function csvsIn(dir: string): Promise<string[]> {
@@ -190,95 +191,99 @@ export default function Settings() {
     const n = BY_ID[id];
     return (
       <View key={id} style={row}>
-        <Text>{n.name} ({n.unit})</Text>
-        <TextInput value={goal[id] ?? ''} onChangeText={v => setGoal({ ...goal, [id]: v })} onBlur={saveGoals} keyboardType="decimal-pad"
-          placeholder={DEFAULT_TARGETS[id] != null ? String(DEFAULT_TARGETS[id]) : '-'} style={input} />
+        <Txt style={{ flex: 1 }}>{n.name} ({n.unit})</Txt>
+        <Field value={goal[id] ?? ''} onChangeText={v => setGoal({ ...goal, [id]: v })} onBlur={saveGoals} keyboardType="decimal-pad"
+          accessibilityLabel={`${n.name} goal, ${n.unit}`} placeholder={DEFAULT_TARGETS[id] != null ? String(DEFAULT_TARGETS[id]) : '-'} style={input} />
       </View>
     );
   };
   const busy = up.status === 'checking' || up.status === 'downloading';
 
   return (
-    <ScrollView contentContainerStyle={{ padding: 12, gap: 8 }} keyboardShouldPersistTaps="handled">
-      <Text style={h}>Goals</Text>
-      {MAIN.map(goalInput)}
-      <Button title={more ? 'Less' : 'More'} onPress={() => setMore(!more)} />
-      {more && PANEL.filter(n => !MAIN.includes(n.id)).map(n => goalInput(n.id))}
+    <Screen tab title="Settings">
+      <Section title="Goals">
+        {MAIN.map(goalInput)}
+        <Btn kind="plain" small title={more ? 'Show less' : 'All nutrients'} onPress={() => setMore(!more)} />
+        {more && PANEL.filter(n => !MAIN.includes(n.id)).map(n => goalInput(n.id))}
+      </Section>
 
-      <Text style={h}>Meals</Text>
-      <TextInput value={mealsText} onChangeText={setMealsText} onBlur={saveMeals} placeholder={DEFAULT_MEALS.join(', ')} style={{ ...input, textAlign: 'left' }} />
+      <Section title="Meals">
+        <Field value={mealsText} onChangeText={setMealsText} onBlur={saveMeals} placeholder={DEFAULT_MEALS.join(', ')} accessibilityLabel="Meals, separated by commas" />
+      </Section>
 
-      <Text style={h}>Food database</Text>
-      <Chips options={countries} value={country} onChange={pickCountry} />
-      <Text>{installed.md5 ? `Installed database built ${installed.builtAt}` : 'Starter database: generic foods only'}</Text>
-      <Button title="Check for update" onPress={() => up.check(country)} disabled={busy} />
-      {up.status === 'checking' && <Text>Checking...</Text>}
-      {up.status === 'current' && <Text>Up to date.</Text>}
-      {up.file && up.file.country === country && (
-        <>
-          <Text>Full database available, {Math.round(up.file.bytes / 1e6)} MB</Text>
-          {up.status === 'paused' && <Text>Paused. Tap Download to continue.</Text>}
-          <Button title="Download" onPress={download} disabled={busy} />
-          {up.status === 'downloading' && (
-            <View style={{ height: 6, backgroundColor: '#ddd', borderRadius: 3 }}>
-              <View style={{ height: 6, width: `${Math.min(up.progress, 1) * 100}%`, backgroundColor: '#3a3', borderRadius: 3 }} />
-            </View>
-          )}
-          <Text style={{ color: '#666' }}>Keep the app open. If interrupted, the download resumes where it left off.</Text>
-        </>
-      )}
-      {!!up.error && <Text style={{ color: '#c33' }}>{up.error}</Text>}
+      <Section title="Food database">
+        <Chips options={countries} value={country} onChange={pickCountry} />
+        <Txt>{installed.md5 ? `Installed database built ${installed.builtAt}` : 'Starter database: generic foods only'}</Txt>
+        <Btn title="Check for update" onPress={() => up.check(country)} disabled={busy} />
+        {up.status === 'checking' && <Txt v="muted">Checking...</Txt>}
+        {up.status === 'current' && <Txt v="muted">Up to date.</Txt>}
+        {up.file && up.file.country === country && (
+          <>
+            <Txt>Full database available, {Math.round(up.file.bytes / 1e6)} MB</Txt>
+            {up.status === 'paused' && <Txt v="muted">Paused. Tap Download to continue.</Txt>}
+            <Btn kind="primary" icon="download" title="Download" onPress={download} disabled={busy} />
+            {up.status === 'downloading' && (
+              <View style={{ height: 8, backgroundColor: color.track, borderRadius: 4 }} accessibilityRole="progressbar">
+                <View style={{ height: 8, width: `${Math.min(up.progress, 1) * 100}%`, backgroundColor: color.green, borderRadius: 4 }} />
+              </View>
+            )}
+            <Txt v="muted">Keep the app open. If interrupted, the download resumes where it left off.</Txt>
+          </>
+        )}
+        {!!up.error && <Txt v="error">{up.error}</Txt>}
+      </Section>
 
-      <Text style={h}>Privacy</Text>
-      <View style={row}>
-        <Text style={{ flex: 1 }}>Look up missing barcodes on Open Food Facts automatically</Text>
-        <Switch value={off} onValueChange={async v => { setOff(v); await setSetting(diary, 'off_lookup', v ? '1' : '0'); }} />
-      </View>
-      <Text style={{ color: '#666' }}>Sends only the barcode. When off, the Scan screen asks each time.</Text>
+      <Section title="Privacy">
+        <View style={row}>
+          <Txt style={{ flex: 1 }}>Look up missing barcodes on Open Food Facts automatically</Txt>
+          <Switch {...toggle} value={off} onValueChange={async v => { setOff(v); await setSetting(diary, 'off_lookup', v ? '1' : '0'); }} />
+        </View>
+        <Txt v="muted">Sends only the barcode. When off, the Scan screen asks each time.</Txt>
+      </Section>
 
-      <Text style={h}>Backup</Text>
-      <Button title={SET_UP_BACKUP} onPress={setUpBackup} />
-      {backup.pending ? (
-        <View style={row}><Text style={{ color: '#c33', flex: 1 }}>Backup failed</Text><Button title="Retry" onPress={retryBackup} /></View>
-      ) : (
-        <Text>{backup.lastOk ? `Last backup: ${new Date(backup.lastOk).toLocaleString()}` : 'Backup not set up'}</Text>
-      )}
-      {!!backupMsg && <Text style={{ color: '#c33' }}>{backupMsg}</Text>}
-      <Text style={{ color: '#666' }}>To share with a coach, share the folder that holds report.html from your cloud app. They can open it in any browser; it refreshes every time you log.</Text>
-      <Button title="Restore from backup" onPress={pickRestore} />
-      {restore && (
-        <>
-          <Text>{restore.entries.length} entries, {restore.custom_foods.length} custom foods, {restore.recipes.length} recipes, exported {new Date(restore.exportedAt).toLocaleString()}. This replaces everything in this app.</Text>
-          <Button title={restoring ? 'Restoring...' : armed ? 'Tap again to replace' : 'Replace'} color="#c33" onPress={replace} disabled={restoring} />
-        </>
-      )}
-      {!!restoreMsg && <Text style={{ color: restoreMsg.startsWith('Restored') ? undefined : '#c33' }}>{restoreMsg}</Text>}
+      <Section title="Backup">
+        <Btn title={SET_UP_BACKUP} onPress={setUpBackup} />
+        {backup.pending ? (
+          <View style={row}><Txt v="error" style={{ flex: 1 }}>Backup failed</Txt><Btn small title="Retry" onPress={retryBackup} /></View>
+        ) : (
+          <Txt>{backup.lastOk ? `Last backup: ${new Date(backup.lastOk).toLocaleString()}` : 'Backup not set up'}</Txt>
+        )}
+        {!!backupMsg && <Txt v="error">{backupMsg}</Txt>}
+        <Txt v="muted">To share with a coach, share the folder that holds report.html from your cloud app. They can open it in any browser; it refreshes every time you log.</Txt>
+        <Btn title="Restore from backup" onPress={pickRestore} />
+        {restore && (
+          <>
+            <Txt>{restore.entries.length} entries, {restore.custom_foods.length} custom foods, {restore.recipes.length} recipes, exported {new Date(restore.exportedAt).toLocaleString()}. This replaces everything in this app.</Txt>
+            <Btn kind={armed ? 'danger' : 'destructive'} title={restoring ? 'Restoring...' : armed ? 'Tap again to replace' : 'Replace'} onPress={replace} disabled={restoring} />
+          </>
+        )}
+        {!!restoreMsg && <Txt v={restoreMsg.startsWith('Restored') ? 'body' : 'error'}>{restoreMsg}</Txt>}
+      </Section>
 
-      <Text style={h}>Import and export</Text>
-      <View style={row}>
-        <Text>From</Text><TextInput value={from} onChangeText={setFrom} placeholder="YYYY-MM-DD" style={input} />
-        <Text>To</Text><TextInput value={to} onChangeText={setTo} placeholder="YYYY-MM-DD" style={input} />
-      </View>
-      <Button title="Share CSV" onPress={shareCsv} />
-      <Button title="Share report" onPress={shareReport} />
-      {!!exportMsg && <Text style={{ color: '#c33' }}>{exportMsg}</Text>}
-      <Button title="Import Cronometer file" onPress={importFile} />
-      {imports.map((m, i) => <Text key={i}>{m}</Text>)}
+      <Section title="Import and export">
+        <View style={row}>
+          <Txt>From</Txt><Field value={from} onChangeText={setFrom} placeholder="YYYY-MM-DD" accessibilityLabel="Export from date" style={{ flex: 1 }} />
+          <Txt>To</Txt><Field value={to} onChangeText={setTo} placeholder="YYYY-MM-DD" accessibilityLabel="Export to date" style={{ flex: 1 }} />
+        </View>
+        <Btn title="Share CSV" onPress={shareCsv} />
+        <Btn title="Share report" onPress={shareReport} />
+        {!!exportMsg && <Txt v="error">{exportMsg}</Txt>}
+        <Btn title="Import Cronometer file" onPress={importFile} />
+        {imports.map((m, i) => <Txt key={i}>{m}</Txt>)}
+      </Section>
 
       {healthAvailable && (
-        <>
-          <Text style={h}>Health</Text>
+        <Section title="Health">
           <View style={row}>
-            <Text style={{ flex: 1 }}>Sync with {HEALTH_STORE}</Text>
-            <Switch value={health} onValueChange={toggleHealth} />
+            <Txt style={{ flex: 1 }}>Sync with {HEALTH_STORE}</Txt>
+            <Switch {...toggle} value={health} onValueChange={toggleHealth} />
           </View>
-          <Text style={{ color: '#666' }}>Reads active calories burned and writes the meals you log as nutrition records.</Text>
-          {healthDenied && <Text style={{ color: '#c33' }}>Permission not granted. {Platform.OS === 'ios' ? 'Allow it in the Health app.' : 'Health Connect may need to be installed or updated.'}</Text>}
-        </>
+          <Txt v="muted">Reads active calories burned and writes the meals you log as nutrition records.</Txt>
+          {healthDenied && <Txt v="error">Permission not granted. {Platform.OS === 'ios' ? 'Allow it in the Health app.' : 'Health Connect may need to be installed or updated.'}</Txt>}
+        </Section>
       )}
 
-      <Text style={h}>About</Text>
-      <Button title="About this app" onPress={() => router.push('/about')} />
-    </ScrollView>
+      <Btn kind="plain" title="About this app" onPress={() => router.push('/about')} />
+    </Screen>
   );
 }

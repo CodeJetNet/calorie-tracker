@@ -1,8 +1,8 @@
 import { CameraView, useCameraPermissions } from 'expo-camera';
 import * as Crypto from 'expo-crypto';
-import { Stack, useLocalSearchParams, useRouter } from 'expo-router';
+import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useEffect, useRef, useState } from 'react';
-import { Button, ScrollView, Text, TextInput, View } from 'react-native';
+import { View } from 'react-native';
 import { CAN_CONTRIBUTE, contribute } from '../../src/contribute';
 import { useDb } from '../../src/db/provider';
 import { addDays, today } from '../../src/dates';
@@ -14,9 +14,9 @@ import { bySource } from '../../src/foods/db';
 import { resolve, type Resolved } from '../../src/foods/resolve';
 import { BY_ID, PANEL, scale, TOP } from '../../src/nutrients';
 import { Chips } from '../../src/ui/Chips';
+import { Btn, Card, Field, IconBtn, Line, row, Screen, Section, Txt } from '../../src/ui/kit';
 import { fmt } from '../../src/ui/NutrientBar';
-
-const row = { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' } as const;
+import { radius } from '../../src/ui/theme';
 
 export default function FoodDetail() {
   const { diary, foods } = useDb();
@@ -104,56 +104,60 @@ export default function FoodDetail() {
     if (msg) { setContribMsg(msg); setContrib('ask'); } else setContrib('done');
   };
 
-  const line = (k: string) => <Text key={k}>{BY_ID[k]?.name ?? k}: {fmt(n[k] ?? 0)} {BY_ID[k]?.unit ?? ''}</Text>;
+  const line = (k: string) => <Line key={k} label={BY_ID[k]?.name ?? k} value={`${fmt(n[k] ?? 0)} ${BY_ID[k]?.unit ?? ''}`} />;
 
   return (
-    <ScrollView contentContainerStyle={{ padding: 12, gap: 12 }}>
-      <Stack.Screen options={{ title: r?.name ?? '', headerRight: () => (editPath ? <Button title="Edit" onPress={() => router.push({ pathname: editPath, params: { id, day: p.day, meal: p.meal, pick: p.pick } })} /> : null) }} />
-      {missing && <Text>This food is no longer available.</Text>}
+    <Screen title={r?.name ?? ''}
+      right={editPath ? <IconBtn icon="edit" label="Edit" onPress={() => router.push({ pathname: editPath, params: { id, day: p.day, meal: p.meal, pick: p.pick } })} /> : null}>
+      {missing && <Txt>This food is no longer available.</Txt>}
       {r && (
         <>
-          <Text style={{ fontSize: 20 }}>{r.name}</Text>
-          {r.brand && <Text style={{ color: '#666' }}>{r.brand}</Text>}
-          <Chips options={r.options.map(o => o.label)} value={option!.label} onChange={l => setOpt(r.options.findIndex(o => o.label === l))} />
-          <View style={row}>
-            <Text>Quantity</Text>
-            <TextInput value={qtyText} onChangeText={setQtyText} keyboardType="decimal-pad" selectTextOnFocus
-              style={{ borderWidth: 1, borderColor: '#ccc', borderRadius: 8, padding: 8, width: 80, textAlign: 'right' }} />
-          </View>
-          <Text style={{ color: '#666' }}>{fmt(grams)} g</Text>
-          {!p.pick && <Chips options={meals.includes(meal) ? meals : [...meals, meal]} value={meal} onChange={setMeal} />}
-          {existing && (
+          {r.brand && <Txt v="muted">{r.brand}</Txt>}
+          <Section title="Serving">
+            <Chips options={r.options.map(o => o.label)} value={option!.label} onChange={l => setOpt(r.options.findIndex(o => o.label === l))} />
             <View style={row}>
-              <Button title="<" onPress={() => setDay(addDays(day, -1))} />
-              <Text>{day === today() ? 'Today' : day}</Text>
-              <Button title=">" onPress={() => setDay(addDays(day, 1))} />
+              <Txt style={{ flex: 1 }}>Quantity</Txt>
+              <Field value={qtyText} onChangeText={setQtyText} keyboardType="decimal-pad" selectTextOnFocus accessibilityLabel="Quantity" style={{ width: 96, textAlign: 'right' }} />
             </View>
+            <Txt v="muted" style={{ textAlign: 'right' }}>{fmt(grams)} g</Txt>
+          </Section>
+          {(!p.pick || existing) && (
+            <Section title="Meal">
+              {!p.pick && <Chips options={meals.includes(meal) ? meals : [...meals, meal]} value={meal} onChange={setMeal} />}
+              {existing && (
+                <View style={row}>
+                  <IconBtn icon="prev" label="Previous day" onPress={() => setDay(addDays(day, -1))} />
+                  <Txt v="headline">{day === today() ? 'Today' : day}</Txt>
+                  <IconBtn icon="next" label="Next day" onPress={() => setDay(addDays(day, 1))} />
+                </View>
+              )}
+            </Section>
           )}
-          <View style={{ padding: 12, borderRadius: 8, backgroundColor: '#f2f2f2' }}>
+          <Section title="Nutrition">
             {TOP.map(line)}
-            <Button title={more ? 'Less' : 'More'} onPress={() => setMore(!more)} />
+            <Btn kind="plain" small title={more ? 'Show less' : 'All nutrients'} onPress={() => setMore(!more)} />
             {more && [...PANEL.filter(x => !TOP.includes(x.id)).map(x => x.id), ...extra].map(line)}
-          </View>
-          <Button title={p.pick ? 'Add to recipe' : existing ? 'Save' : `Add to ${meal}`} onPress={save} disabled={!valid} />
-          {CAN_CONTRIBUTE && r.barcode && kind === 'foods' && <Button title="Suggest a correction" onPress={suggest} />}
-          {canContribute && contrib === 'idle' && <Button title="Contribute to Open Food Facts" onPress={() => setContrib('ask')} />}
-          {canContribute && contrib === 'done' && <Text>Thanks. It will be in this app's database after the next weekly build.</Text>}
+          </Section>
+          <Btn kind="primary" title={p.pick ? 'Add to recipe' : existing ? 'Save' : `Add to ${meal}`} onPress={save} disabled={!valid} />
+          {CAN_CONTRIBUTE && r.barcode && kind === 'foods' && <Btn kind="plain" title="Suggest a correction" onPress={suggest} />}
+          {canContribute && contrib === 'idle' && <Btn title="Contribute to Open Food Facts" onPress={() => setContrib('ask')} />}
+          {canContribute && contrib === 'done' && <Txt>Thanks. It will be in this app's database after the next weekly build.</Txt>}
           {canContribute && contrib !== 'idle' && contrib !== 'done' && (
-            <>
-              <Text>This sends the name, brand, serving and nutrition values for this barcode to Open Food Facts, the public food database, together with a random id for this install. Nothing else about you is sent.</Text>
+            <Card>
+              <Txt>This sends the name, brand, serving and nutrition values for this barcode to Open Food Facts, the public food database, together with a random id for this install. Nothing else about you is sent.</Txt>
               {contrib === 'photo' ? (
                 <>
-                  <CameraView ref={cam} style={{ height: 320 }} />
-                  <Button title="Take photo" onPress={snap} />
+                  <CameraView ref={cam} style={{ height: 320, borderRadius: radius.control, overflow: 'hidden' }} />
+                  <Btn kind="primary" title="Take photo" onPress={snap} />
                 </>
-              ) : photo ? <Text style={{ color: '#666' }}>Photo added.</Text> : <Button title="Add a photo of the nutrition label" onPress={addPhoto} />}
-              <Button title={contrib === 'sending' ? 'Sending...' : 'Send'} onPress={send} disabled={contrib !== 'ask'} />
-              {!!contribMsg && <Text style={{ color: '#c33' }}>{contribMsg}</Text>}
-              <Button title="Cancel" onPress={() => { setContrib('idle'); setPhoto(null); setContribMsg(''); }} disabled={contrib === 'sending'} />
-            </>
+              ) : photo ? <Txt v="muted">Photo added.</Txt> : <Btn title="Add a photo of the nutrition label" onPress={addPhoto} />}
+              <Btn kind="primary" title={contrib === 'sending' ? 'Sending...' : 'Send'} onPress={send} disabled={contrib !== 'ask'} />
+              {!!contribMsg && <Txt v="error">{contribMsg}</Txt>}
+              <Btn kind="plain" title="Cancel" onPress={() => { setContrib('idle'); setPhoto(null); setContribMsg(''); }} disabled={contrib === 'sending'} />
+            </Card>
           )}
         </>
       )}
-    </ScrollView>
+    </Screen>
   );
 }
