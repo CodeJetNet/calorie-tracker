@@ -7,8 +7,8 @@ import { unzip } from 'react-native-zip-archive';
 export type ManifestFile = { name: string; country: string; bytes: number; md5: string; url: string; mirror: string };
 export type Manifest = { schemaVersion: number; builtAt: string; files: ManifestFile[] };
 
-/** The CDN has free egress; the GitHub Release is a mirror for when it is down. */
-export const MANIFEST_URLS = ['https://food.codejet.net/manifest.json', 'https://github.com/codejetnet/food-data/releases/latest/download/manifest.json'];
+/** The data repo's latest GitHub Release: free, no bandwidth cap. A second host goes here if that ever changes. */
+export const MANIFEST_URLS = ['https://github.com/codejetnet/food-data/releases/latest/download/manifest.json'];
 export const SUPPORTED_SCHEMA = 1;
 export const FOODS_DIR = `${FS.documentDirectory}SQLite/`;
 export const FOODS_FILE = 'foods.db';

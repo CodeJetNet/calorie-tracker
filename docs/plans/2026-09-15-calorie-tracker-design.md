@@ -34,12 +34,12 @@ Status: approved in brainstorm, ready for implementation planning. Revised 2026-
 
 Three pieces, no servers.
 
-1. **Data repo (`food-data`).** Build script, curator layer, canonical nutrient list. A scheduled GitHub Actions job downloads upstream dumps, merges the curator layer, validates, builds SQLite files, and publishes them with a manifest to a free-egress CDN (Cloudflare R2 behind a custom domain), with a GitHub Release as the mirror.
+1. **Data repo (`food-data`).** Build script, curator layer, canonical nutrient list. A scheduled GitHub Actions job downloads upstream dumps, merges the curator layer, validates, builds SQLite files, and publishes them with a manifest as assets of a GitHub Release.
 2. **App repo (`calorie-tracker`).** Expo React Native app. Offline first. Two SQLite databases on device: a read-only foods file replaced wholesale on update, and a diary file holding all user data. The app ships with a starter foods file, the generic USDA foods without barcodes, so search and logging work on first launch; the full country file is a resumable download the user starts when they choose.
 3. **Two files in the user's own cloud storage.** Google Drive does not offer folder access through the Storage Access Framework, so the app never asks for a folder. The user creates `report.html` and `diary.json` once each through the system create-document dialog, where Drive and OneDrive appear as providers, and the app keeps the two document URIs and overwrites them in place. Sharing the folder that holds them with a coach is the entire coach feature. Restore is the open-document dialog in reverse.
 
 Network traffic the app ever generates:
-- manifest check and database download from the CDN, falling back to the GitHub Release mirror
+- manifest check and database download from the data repo's latest GitHub Release
 - the Open Food Facts write API, only when the user taps Contribute on a food
 - the on-device health store
 - the user's cloud provider through the two picked documents
@@ -77,7 +77,7 @@ Runs weekly on a schedule and on every merge to main.
 3. Precedence for the same barcode: community layer, then USDA Branded, then Open Food Facts; within USDA Branded the newest `publication_date` wins, because every relabel gets a new fdc_id. Generic foods with the same name across Foundation, SR Legacy, and FNDDS keep one row, in that order. Keep a `source` column on every row.
 4. Validate. Drop rows that fail any of: missing energy; energy above 950 kcal per 100 g, since labels round pure oils up to 929; when protein, carbs, and fat are all present, `4*protein + 4*(carbs - fiber) + 2*fiber + 9*fat + 7*alcohol` (fiber and alcohol count as 0 when absent) differs from stated energy by more than the larger of 30 percent and 25 kcal; barcode fails GTIN checksum; empty name. The fiber and alcohol terms keep beer, wine, spirits, and bran cereals in the database.
 5. Emit one `foods-<CC>.zip` per country, each holding the generic USDA foods plus that country's barcoded products from Open Food Facts country tags and, for US, USDA Branded, so a user downloads one file. Also emit `foods-starter.zip`: the generic foods only, panel nutrients and portions, no long tail, under 10 MB, which the app's release build embeds so the app works before any download. `manifest.json` is shaped `{ schemaVersion, builtAt, files: [{ name, country, bytes, md5, url }] }`; `bytes` is the zip size and `md5` is of the inner `.db`, because expo-file-system computes MD5 natively and hashing 300 MB in JavaScript is not practical.
-6. Publish. Primary: upload the zips to Cloudflare R2 under `builds/<tag>/`, then a GitHub Release tagged `data-YYYYMMDD` as the mirror, then `manifest.json` to the bucket root last, so it never names a file that is not there yet. Each manifest entry carries `url` (R2) and `mirror` (the release asset), both pinned to that tag and never `latest`, so a client that downloads after the next build still gets the file its manifest describes. R2 has no egress fee and its free tier holds the two newest builds; GitHub Releases would throttle at real adoption, so it is only the mirror. The workflow deletes R2 builds and releases older than the newest two. `r2.dev` is rate-limited, so the bucket sits behind a subdomain of a domain you already own.
+6. Publish. Create a draft GitHub Release tagged `data-YYYYMMDD-<run>`, upload the zips and `manifest.json`, then publish it as latest, so `releases/latest` never names a file that is still uploading. Each manifest entry carries `url` and `mirror`, both the release asset pinned to that tag and never `latest`, so a client that downloads after the next build still gets the file its manifest describes. The workflow deletes releases older than the newest two. GitHub documents no bandwidth cap on release assets and a 2 GiB per-file limit, and release downloads honor HTTP range requests. If that ever changes, a second host goes into `mirror`; a Hugging Face dataset repo is free, has no card requirement, and serves range requests. Cloudflare R2 was the original primary and was dropped on 2026-09-25: it needs a payment method on file, and its unset secrets kept every build from publishing anything.
 
 Runner budget: GitHub Actions is free for public repos, with a 14 GB disk and a 6 hour job limit. The Parquet export is the only way the Open Food Facts data fits comfortably; the CSV is 9 GB uncompressed.
 
@@ -226,7 +226,7 @@ expo-camera `onBarcodeScanned` for EAN-13, EAN-8, UPC-A, and UPC-E. Normalize to
 ## Release and CI/CD for a public repo
 
 - Release workflow runs only on `v*` tags pushed by maintainers. The pull request workflow runs lint, type check, and tests, and has no access to secrets. GitHub already withholds secrets from workflows triggered by fork pull requests.
-- GitHub Actions encrypted secrets: `ANDROID_KEYSTORE_BASE64`, `ANDROID_KEYSTORE_PASSWORD`, `ANDROID_KEY_PASSWORD`, `PLAY_SERVICE_ACCOUNT_JSON`, and `OFF_APP_PASSWORD`, the password of the app's global Open Food Facts account, baked into release builds only; local builds may point at the Open Food Facts staging server with a staging account the developer creates once in a browser, since `off`/`off` is only that server's HTTP gate, and with no password at all the Contribute button is hidden. None of these ever appear in git. The data repo holds `R2_ACCOUNT_ID`, `R2_ACCESS_KEY_ID` and `R2_SECRET_ACCESS_KEY`; its build workflow runs on schedule and on pushes to main, never on pull requests.
+- GitHub Actions encrypted secrets: `ANDROID_KEYSTORE_BASE64`, `ANDROID_KEYSTORE_PASSWORD`, `ANDROID_KEY_PASSWORD`, `PLAY_SERVICE_ACCOUNT_JSON`, and `OFF_APP_PASSWORD`, the password of the app's global Open Food Facts account, baked into release builds only; local builds may point at the Open Food Facts staging server with a staging account the developer creates once in a browser, since `off`/`off` is only that server's HTTP gate, and with no password at all the Contribute button is hidden. None of these ever appear in git. The data repo needs no secrets beyond the workflow's own token; its build workflow runs on schedule and on pushes to main, never on pull requests.
 - Enroll in Play App Signing so the keystore held in CI is only the upload key. If it leaks, it can be reset in the Play Console without losing the app identity.
 - Build on the free ubuntu runner: `npx expo prebuild --platform android`, then `./gradlew bundleRelease` with the signing config read from environment variables. No Expo cloud build, whose free tier is limited.
 - Upload the AAB with r0adkll/upload-google-play to the `internal` track. Promotion to production is a manual click in the Play Console.
@@ -264,8 +264,7 @@ expo-camera `onBarcodeScanned` for EAN-13, EAN-8, UPC-A, and UPC-E. Normalize to
 |---|---|
 | Google Play developer account | $25 once |
 | GitHub Actions, Releases, Pages for public repos | $0 |
-| Cloudflare R2 as the food CDN | $0 within the free tier: 10 GB stored, free egress, 10M reads a month, which is about 300k daily manifest checks |
-| A subdomain on a domain you already own, for the R2 custom domain | $0 |
+| GitHub Releases as the food host | $0: no bandwidth cap documented, 2 GiB per file |
 | Apple Developer Program | $99/year, paid by the maintainer |
 
 ## Verify early
@@ -276,7 +275,7 @@ expo-camera `onBarcodeScanned` for EAN-13, EAN-8, UPC-A, and UPC-E. Normalize to
 4. Whoop on Android reading nutrition from Health Connect. Not our bug if it fails, but set expectations in the README.
 5. Open Food Facts Parquet plus DuckDB fits in a GitHub Actions runner within the time limit.
 6. The Open Food Facts write API on the staging server accepts a product post from the app's global account with `app_name`, `app_version` and `app_uuid`, and a nutrition photo upload. Confirm the exact field names before Task 6.1.
-7. An R2 bucket behind a custom domain serves a 100 MB zip with HTTP range requests, which the resumable download needs.
+7. A GitHub Release asset serves a 100 MB zip with HTTP range requests, which the resumable download needs. Verified 2026-09-25: a ranged GET on a release asset returns 206.
 8. iOS: the Files app folder picker grants long-term access to an iCloud Drive folder and the app can overwrite files inside it after a restart. This spike runs before the iOS milestone, not on day one.
 9. The starter file stays under 10 MB zipped after the first build; drop portions before dropping foods if it does not.
 
@@ -289,7 +288,7 @@ expo-camera `onBarcodeScanned` for EAN-13, EAN-8, UPC-A, and UPC-E. Normalize to
 - Nutrients: store everything the source provides, display a ~30 panel by default. Canonical key is the USDA nutrient number.
 - Exercise: read burned calories from the platform health store; no exercise logging UI.
 - Contribution: in-app to Open Food Facts, no account with us. The git delta layer is for curators only.
-- Distribution: Cloudflare R2 primary because egress is free, GitHub Release as mirror, jittered daily checks, URLs pinned to the build.
+- Distribution: GitHub Release only, since 2026-09-25 (R2 dropped: it needs a payment method, and its unset secrets blocked every publish), jittered daily checks, URLs pinned to the build.
 - First launch: a starter foods file inside the app binary and a one-tap Open Food Facts lookup on scan misses, so nothing waits on the big download. The full file is a resumable download on request.
 - Two repos: `food-data` and `calorie-tracker`.
 - Android first, iOS second, both store fees paid by the maintainer. App code MIT, data ODbL.
