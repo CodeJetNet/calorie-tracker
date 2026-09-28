@@ -7,7 +7,7 @@ import { useDb } from '../../src/db/provider';
 import { customFoodByBarcode, upsertCustomFood } from '../../src/diary/customFoods';
 import { getSetting } from '../../src/diary/settings';
 import { byBarcode, foodRef } from '../../src/foods/db';
-import { lookupOff } from '../../src/foods/offLookup';
+import { lookupOnline } from '../../src/foods/offLookup';
 import { normalize } from '../../src/gtin';
 import { Btn, Card, Glass, Icon, Screen, TAB_BAR, Txt, useInsets } from '../../src/ui/kit';
 import { backdrop, color, radius } from '../../src/ui/theme';
@@ -38,7 +38,7 @@ export default function Scan() {
 
   const lookup = async (gtin: string) => {
     setMiss({ gtin, off: 'looking' });
-    const f = await lookupOff(gtin).catch(() => null);
+    const f = await lookupOnline(gtin).catch(() => null);
     if (!f) return setMiss({ gtin, off: 'miss' });
     const id = Crypto.randomUUID();
     await upsertCustomFood(diary, { id, ...f });   // cached in SQLite, so next time it is a local hit
@@ -55,7 +55,7 @@ export default function Scan() {
     if (c) return open(`custom:${c.id}`);
     const f = foods && (await byBarcode(foods, gtin));
     if (f) return open(foodRef(f));
-    if ((await getSetting(diary, 'off_lookup')) === '1') lookup(gtin);
+    if ((await getSetting(diary, 'off_lookup')) !== '0') lookup(gtin);   // on unless turned off
     else setMiss({ gtin, off: 'ask' });
   };
 
@@ -85,11 +85,11 @@ export default function Scan() {
       </Glass>
       {miss && (
         <Glass style={{ position: 'absolute', left: 16, right: 16, bottom: insets.bottom + TAB_BAR + 12, padding: 16, gap: 10 }}>
-          {miss.off === 'looking' ? <Txt>Looking up on Open Food Facts…</Txt> : (
+          {miss.off === 'looking' ? <Txt>Looking up online…</Txt> : (
             <>
-              <Txt v="headline">{miss.off === 'miss' ? 'Not in Open Food Facts either' : 'Not on this phone'}</Txt>
+              <Txt v="headline">{miss.off === 'miss' ? 'Not found online either' : 'Not on this phone'}</Txt>
               {miss.off === 'miss' && starter && <Txt v="muted">It may be in the full database. Download it in Settings.</Txt>}
-              {miss.off === 'ask' && <Btn kind="primary" title="Look up on Open Food Facts" onPress={() => lookup(miss.gtin)} />}
+              {miss.off === 'ask' && <Btn kind="primary" title="Look up online" onPress={() => lookup(miss.gtin)} />}
               {miss.off === 'ask' && <Txt v="muted" style={{ textAlign: 'center' }}>Sends only the barcode.</Txt>}
               <Btn kind={miss.off === 'ask' ? 'tinted' : 'primary'} title="Create custom food" onPress={() => { setMiss(null); router.push({ pathname: '/custom/[id]', params: { id: 'new', barcode: miss.gtin, day, meal } }); }} />
               <Btn kind="plain" title="Cancel" onPress={() => setMiss(null)} />

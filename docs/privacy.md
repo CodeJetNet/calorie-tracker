@@ -16,7 +16,7 @@ Your diary, custom foods, recipes, weight log and settings live in a database on
 Nothing, except:
 
 - **Food database download.** The app fetches its food database from the project's CDN (`food.codejet.net`), or from GitHub if the CDN is unreachable. This is an ordinary file download; it carries nothing about you.
-- **Barcode lookup, optional.** When you scan a barcode the app cannot find in its own database, it can ask Open Food Facts for that barcode: automatically if you turn that on in Settings, otherwise only when you tap Look up. Only the barcode is sent.
+- **Barcode lookup, optional.** When you scan a barcode the app cannot find in its own database, it asks Open Food Facts for that barcode, and USDA FoodData Central if Open Food Facts does not have it. This happens automatically unless you turn it off in Settings, in which case it happens only when you tap Look up. Only the barcode is sent.
 - **Contribute, only when you tap it.** When you tap "Contribute to Open Food Facts" or "Suggest a correction", the app sends that food's name, brand, serving and nutrition values, the optional photo of the nutrition label you chose to attach, and a random per-device id to Open Food Facts, the public food database. Nothing else about you is sent. What you send becomes part of Open Food Facts under its [Open Database License](https://opendatacommons.org/licenses/odbl/).
 
 ## What the app never collects

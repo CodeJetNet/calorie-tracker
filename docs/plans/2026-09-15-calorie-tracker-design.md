@@ -43,7 +43,7 @@ Network traffic the app ever generates:
 - the Open Food Facts write API, only when the user taps Contribute on a food
 - the on-device health store
 - the user's cloud provider through the two picked documents
-- an Open Food Facts barcode lookup for scans that miss the local file, one tap each, or automatic when the setting is on
+- a barcode lookup on Open Food Facts, then USDA FoodData Central, for scans that miss the local file; automatic unless the setting is turned off (changed 2026-09-28)
 
 ## Data repo
 
@@ -128,7 +128,7 @@ Expo with a custom dev client (Health Connect rules out Expo Go), TypeScript, ex
 ### Screens
 
 1. **Today.** Date navigation, meal groups with entries, panel totals against goals, burned calories from the health store, remaining. Tap an entry to edit its amount, meal, or day. Delete offers undo for a few seconds.
-2. **Scan.** Camera. On hit, open Food detail. On miss, a one-tap Open Food Facts lookup that sends only the barcode, automatic when the setting is on; a hit is saved as a custom food and opened, so scanning works from the first launch and the result is cached in SQLite. A miss there offers a custom food prefilled with the barcode.
+2. **Scan.** Camera. On hit, open Food detail. On miss, an Open Food Facts then USDA FoodData Central lookup that sends only the barcode, automatic unless the setting is off; a hit is saved as a custom food and opened, so scanning works from the first launch and the result is cached in SQLite. A miss there offers a custom food prefilled with the barcode.
 3. **Search.** Full-text search over the foods file plus custom foods and recipes. Recents first. Nothing runs under two characters. Generic foods rank above branded ones so "egg" finds "Egg, whole, raw" before egg noodles.
 4. **Food detail.** Serving picker from portions or grams, quantity, meal group, add. Nutrient panel with a "more" expander. Opens in edit mode for an existing entry. "Contribute to Open Food Facts" on custom foods with a barcode, "Suggest a correction" on database foods with one.
 5. **Custom food and recipe editor.** Name, serving, nutrients. A recipe is a list of ingredients from any source and yields N servings.

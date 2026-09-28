@@ -79,7 +79,7 @@ export default function Settings() {
       setGoal(Object.fromEntries(Object.entries(await goals(diary)).map(([k, v]) => [k, String(v)])));
       setMealsText((await getJson<string[]>(diary, 'meals', DEFAULT_MEALS)).join(', '));
       setCountry((await getSetting(diary, 'foods_country')) ?? 'US');
-      setOff((await getSetting(diary, 'off_lookup')) === '1');
+      setOff((await getSetting(diary, 'off_lookup')) !== '0');
       setHealth((await getSetting(diary, 'health_enabled')) === '1');
       await loadInstalled();
       await loadBackup();
@@ -235,10 +235,10 @@ export default function Settings() {
 
       <Section title="Privacy">
         <View style={row}>
-          <Txt style={{ flex: 1 }}>Look up missing barcodes on Open Food Facts automatically</Txt>
+          <Txt style={{ flex: 1 }}>Look up missing barcodes online automatically</Txt>
           <Switch {...toggle} value={off} onValueChange={async v => { setOff(v); await setSetting(diary, 'off_lookup', v ? '1' : '0'); }} />
         </View>
-        <Txt v="muted">Sends only the barcode. When off, the Scan screen asks each time.</Txt>
+        <Txt v="muted">Sends only the barcode, to Open Food Facts and then USDA FoodData Central. When off, the Scan screen asks each time.</Txt>
       </Section>
 
       <Section title="Backup">

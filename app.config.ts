@@ -32,6 +32,7 @@ const config: ExpoConfig = {
     // Extractable from the APK, so the Open Food Facts account must hold nothing but this app's contributions.
     offPassword: process.env.OFF_APP_PASSWORD ?? '',
     offStaging: process.env.OFF_APP_STAGING === '1',
+    usdaKey: process.env.USDA_API_KEY ?? '',   // free at api.data.gov/signup; USDA barcode fallback, public by nature
   },
   plugins: [
     'expo-router', 'expo-sqlite',
