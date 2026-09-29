@@ -58,7 +58,8 @@ export function fromUsdaFood(gtin13: string, u: UsdaFood): Omit<CustomFood, 'id'
   };
 }
 
-// A free api.data.gov key allows 1,000 lookups an hour per phone; DEMO_KEY, the fallback for local builds, only 10.
+// DEMO_KEY allows 30 lookups an hour and 50 a day per IP address, so it scales with users. A real api.data.gov key allows
+// 1,000 an hour shared by every install, and anyone can pull it out of the bundle, so release builds leave it unset.
 const USDA_KEY = (Constants.expoConfig?.extra as { usdaKey?: string } | undefined)?.usdaKey || 'DEMO_KEY';
 export async function lookupUsda(gtin13: string): Promise<Omit<CustomFood, 'id'> | null> {
   const q = gtin13.replace(/^0+/, '');
