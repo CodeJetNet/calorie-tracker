@@ -1,0 +1,9 @@
+{
+  "platforms": ["android", "apple"],
+  "android": {
+    "modules": ["expo.modules.labeltext.LabelTextModule"]
+  },
+  "apple": {
+    "modules": ["LabelTextModule"]
+  }
+}
