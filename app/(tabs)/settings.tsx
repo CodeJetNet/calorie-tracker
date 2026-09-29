@@ -127,7 +127,7 @@ export default function Settings() {
 
   const pickRestore = async () => {
     setRestore(null); setArmed(false); setRestoreMsg('');
-    const r = await DocumentPicker.getDocumentAsync({ type: 'application/json', copyToCacheDirectory: true });
+    const r = await DocumentPicker.getDocumentAsync({ type: '*/*', copyToCacheDirectory: true });   // Android 9 and older type .json files as octet-stream; validateDiaryFile rejects anything else
     if (r.canceled) return;
     try { setRestore(validateDiaryFile(JSON.parse(await FS.readAsStringAsync(r.assets[0].uri)))); }
     catch (e) { setRestoreMsg((e as Error).message); }
