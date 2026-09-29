@@ -15,7 +15,7 @@ const config: ExpoConfig = {
   },
   android: {
     package: 'com.codejetnet.calorietracker',
-    versionCode: Number(process.env.GITHUB_RUN_NUMBER ?? 0) + 101,   // 100 and 101 were manual uploads (0.1.0, 0.1.1); CI runs start at 102
+    versionCode: Number(process.env.GITHUB_RUN_NUMBER ?? 0) + 102,   // 100 to 102 were manual uploads (0.1.0, 0.1.1, 0.2.0); CI runs start at 103
     adaptiveIcon: {
       backgroundColor: '#F3F7F6',
       foregroundImage: './assets/android-icon-foreground.png',
