@@ -4,7 +4,7 @@ A free calorie and nutrient tracker for Android, iOS to follow. Log meals by sea
 
 ## Why it is free
 
-No ads, no accounts, no servers, no subscription. The maintainer pays the store fees. The food database is built weekly from [Open Food Facts](https://world.openfoodfacts.org) and [USDA FoodData Central](https://fdc.nal.usda.gov) in the [food-data](https://github.com/codejetnet/food-data) repo and served from a free CDN, so there is nothing to charge for. Your diary never leaves the device except to backup files you create through the system file dialog, on your device or in a cloud drive, or to Health Connect if you turn it on. See the [privacy policy](https://codejetnet.github.io/calorie-tracker/privacy).
+No ads, no accounts, no servers, no subscription. The maintainer pays the store fees. The food database is built weekly from [Open Food Facts](https://world.openfoodfacts.org) and [USDA FoodData Central](https://fdc.nal.usda.gov) in the [food-data](https://github.com/codejetnet/food-data) repo and published as free GitHub Release files, so there is nothing to charge for. Your diary never leaves the device except to backup files you create through the system file dialog, on your device or in a cloud drive, or to Health Connect if you turn it on. See the [privacy policy](docs/privacy.md).
 
 ## Install
 
@@ -13,7 +13,7 @@ No ads, no accounts, no servers, no subscription. The maintainer pays the store 
 
 ## Contribute food data
 
-Foods come from Open Food Facts. Add or fix a product from inside the app with "Contribute to Open Food Facts" on a custom food with a barcode, or "Suggest a correction" on a database food, or edit it at <https://world.openfoodfacts.org>. The next weekly build picks it up; your custom food covers the gap until then. There is no account with us.
+Foods come from Open Food Facts. Add or fix a product from inside the app with "Contribute to Open Food Facts" on a custom food with a barcode, or "Suggest a correction" on a database food, or edit it at <https://world.openfoodfacts.org>. When a scanned barcode is missing everywhere, the app can read the nutrition label from a photo, on the phone, so only the name needs typing. The next weekly build picks it up; your custom food covers the gap until then. There is no account with us.
 
 ## Build locally
 

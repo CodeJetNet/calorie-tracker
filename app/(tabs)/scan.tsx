@@ -91,7 +91,8 @@ export default function Scan() {
               {miss.off === 'miss' && starter && <Txt v="muted">It may be in the full database. Download it in Settings.</Txt>}
               {miss.off === 'ask' && <Btn kind="primary" title="Look up online" onPress={() => lookup(miss.gtin)} />}
               {miss.off === 'ask' && <Txt v="muted" style={{ textAlign: 'center' }}>Sends only the barcode.</Txt>}
-              <Btn kind={miss.off === 'ask' ? 'tinted' : 'primary'} title="Create custom food" onPress={() => { setMiss(null); router.push({ pathname: '/custom/[id]', params: { id: 'new', barcode: miss.gtin, day, meal } }); }} />
+              <Btn kind={miss.off === 'ask' ? 'tinted' : 'primary'} title="Read the nutrition label" onPress={() => { setMiss(null); router.push({ pathname: '/label', params: { barcode: miss.gtin, day, meal } }); }} />
+              <Btn kind="plain" title="Enter it by hand" onPress={() => { setMiss(null); router.push({ pathname: '/custom/[id]', params: { id: 'new', barcode: miss.gtin, day, meal } }); }} />
               <Btn kind="plain" title="Cancel" onPress={() => setMiss(null)} />
             </>
           )}

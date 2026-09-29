@@ -11,7 +11,7 @@ const config: ExpoConfig = {
     supportsTablet: true,
     bundleIdentifier: 'com.codejetnet.calorietracker',
     buildNumber: String(Number(process.env.GITHUB_RUN_NUMBER ?? 0) + 100),
-    infoPlist: { NSCameraUsageDescription: 'Scan food barcodes. Nothing leaves your phone.', ITSAppUsesNonExemptEncryption: false },
+    infoPlist: { NSCameraUsageDescription: 'Scan food barcodes and read nutrition labels. Photos are read on your phone.', ITSAppUsesNonExemptEncryption: false },
   },
   android: {
     package: 'com.codejetnet.calorietracker',
@@ -37,7 +37,7 @@ const config: ExpoConfig = {
   plugins: [
     'expo-router', 'expo-sqlite',
     ['expo-splash-screen', { image: './assets/splash-icon.png', imageWidth: 200, backgroundColor: '#F3F7F6' }],
-    ['expo-camera', { cameraPermission: 'Scan food barcodes. Nothing leaves your phone.', recordAudioAndroid: false }],
+    ['expo-camera', { cameraPermission: 'Scan food barcodes and read nutrition labels. Photos are read on your phone.', recordAudioAndroid: false }],
     'react-native-health-connect',
     ['@kingstinct/react-native-healthkit', { NSHealthShareUsageDescription: 'Show calories burned next to calories eaten.', NSHealthUpdateUsageDescription: 'Make logged meals available to other health apps you choose.' }],
     ['expo-build-properties', { android: { minSdkVersion: 26 } }],   // target SDK follows the Expo default, which tracks Play's floor
