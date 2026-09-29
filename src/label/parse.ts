@@ -73,3 +73,12 @@ export function parseLabel(lines: string[]): LabelFood {
   }
   return out;
 }
+
+/** food-data's plausibility rule (rules.py): stated energy vs 4P + 4 max(C - fiber, 0) + 2 fiber + 9F + 7 alcohol, off by more than max(30%, 25 kcal). */
+export function energyMismatch(n: Nutrients): boolean {
+  const kcal = n['1008'], p = n['1003'], c = n['1005'], f = n['1004'];
+  if (kcal === undefined || p === undefined || c === undefined || f === undefined) return false;
+  const fiber = n['1079'] ?? 0, alcohol = n['1018'] ?? 0;
+  const est = 4 * p + 4 * Math.max(c - fiber, 0) + 2 * fiber + 9 * f + 7 * alcohol;
+  return Math.abs(est - kcal) > Math.max(0.3 * kcal, 25);
+}

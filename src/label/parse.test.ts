@@ -82,3 +82,10 @@ test('Quaker oats photo: vitamins in mcg, two nutrients per row', () => {
     '1253': 0, '1093': 0, '1005': 27, '1079': 4, '2000': 1, '1235': 0, '1003': 5, '1114': 0, '1087': 20, '1089': 1.5, '1092': 150,
     '1091': 130, '1090': 40 });
 });
+
+import { energyMismatch } from './parse';
+test('calories that disagree with the macros are flagged', () => {
+  expect(energyMismatch({ '1008': 210, '1003': 15, '1005': 23, '1004': 13, '1079': 11 })).toBe(false);   // 247 estimated, within 30%
+  expect(energyMismatch({ '1008': 22, '1003': 15, '1005': 22, '1004': 13, '1079': 12 })).toBe(true);     // the cropped cookie photo
+  expect(energyMismatch({ '1008': 22 })).toBe(false);                                                    // nothing to compare against
+});
