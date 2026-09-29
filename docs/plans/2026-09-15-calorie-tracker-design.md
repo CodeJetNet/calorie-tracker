@@ -40,7 +40,7 @@ Three pieces, no servers.
 
 Network traffic the app ever generates:
 - manifest check and database download from the data repo's latest GitHub Release
-- the Open Food Facts write API, only when the user taps Contribute on a food
+- none for contributions: the Open Food Facts button opens that barcode's page in the browser, under the person's own account (changed 2026-09-29; the app used to post with a shared account whose password would have been extractable from the APK)
 - the on-device health store
 - the user's cloud provider through the two picked documents
 - a barcode lookup on Open Food Facts, then USDA FoodData Central, for scans that miss the local file; automatic unless the setting is turned off (changed 2026-09-28)
@@ -116,7 +116,7 @@ Size target for the US file: 50 to 100 MB compressed. Measure in the first build
 
 ### Contribution
 
-- In-app "Contribute to Open Food Facts" on any custom food with a barcode, and "Suggest a correction" on any database food with one. The app posts the name, brand, serving and per-100 g values to the Open Food Facts write API, optionally with a photo of the nutrition label, and shows the result. Contributions are attributed to a global app account plus a random per-device id; nothing else is sent and there is no account with us. The next weekly build ingests the change, and the user's custom food covers the gap until then.
+- "Add to Open Food Facts" on any custom food with a barcode, and "Suggest a correction on Open Food Facts" on any database food with one, open `world.openfoodfacts.org/cgi/product.pl?type=edit&code=<barcode>` in the browser, where the person signs in with their own account (changed 2026-09-29: the in-app write API post needed a shared account password baked into the app). The next weekly build ingests the change, and the user's custom food covers the gap until then.
 - The curator layer `community/products/<gtin13>.json` is for maintainers only: overrides for upstream rows that are wrong and cannot be fixed upstream quickly. A pull request edits one file; CI validates the JSON against a schema and the same nutrition sanity rules. It is not the public contribution path, because non-developers do not open pull requests.
 - README points anyone who wants to help to Open Food Facts, whose data the build ingests automatically.
 
@@ -129,9 +129,9 @@ Expo with a custom dev client (Health Connect rules out Expo Go), TypeScript, ex
 ### Screens
 
 1. **Today.** Date navigation, meal groups with entries, panel totals against goals, burned calories from the health store, remaining. Tap an entry to edit its amount, meal, or day. Delete offers undo for a few seconds.
-2. **Scan.** Camera. On hit, open Food detail. On miss, an Open Food Facts then USDA FoodData Central lookup that sends only the barcode, automatic unless the setting is off; a hit is saved as a custom food and opened, so scanning works from the first launch and the result is cached in SQLite. A miss there offers to read the nutrition label from a photo (added 2026-09-29): on-device text recognition, ML Kit on Android and Apple Vision on iOS, fills a per-serving custom food for the user to check, name and save, with the photo carried to Contribute; "Enter it by hand" opens the same editor empty with the barcode.
+2. **Scan.** Camera. On hit, open Food detail. On miss, an Open Food Facts then USDA FoodData Central lookup that sends only the barcode, automatic unless the setting is off; a hit is saved as a custom food and opened, so scanning works from the first launch and the result is cached in SQLite. A miss there offers to read the nutrition label from a photo (added 2026-09-29): on-device text recognition, ML Kit on Android and Apple Vision on iOS, fills a per-serving custom food for the user to check, name and save; "Enter it by hand" opens the same editor empty with the barcode.
 3. **Search.** Full-text search over the foods file plus custom foods and recipes. Recents first. Nothing runs under two characters. Generic foods rank above branded ones so "egg" finds "Egg, whole, raw" before egg noodles.
-4. **Food detail.** Serving picker from portions or grams, quantity, meal group, add. Nutrient panel with a "more" expander. Opens in edit mode for an existing entry. "Contribute to Open Food Facts" on custom foods with a barcode, "Suggest a correction" on database foods with one.
+4. **Food detail.** Serving picker from portions or grams, quantity, meal group, add. Nutrient panel with a "more" expander. Opens in edit mode for an existing entry. "Add to Open Food Facts" on custom foods with a barcode, "Suggest a correction on Open Food Facts" on database foods with one; both open the Open Food Facts site.
 5. **Custom food and recipe editor.** Name, serving, nutrients. A recipe is a list of ingredients from any source and yields N servings.
 6. **Weight.** Log as a list. The chart lives in the HTML report.
 7. **Settings.** Goals, meal groups, backup files, health permissions, database country and update, import, export, attribution and licenses.
@@ -227,7 +227,7 @@ expo-camera `onBarcodeScanned` for EAN-13, EAN-8, UPC-A, and UPC-E. Normalize to
 ## Release and CI/CD for a public repo
 
 - Release workflow runs only on `v*` tags pushed by maintainers. The pull request workflow runs lint, type check, and tests, and has no access to secrets. GitHub already withholds secrets from workflows triggered by fork pull requests.
-- GitHub Actions encrypted secrets: `ANDROID_KEYSTORE_BASE64`, `ANDROID_KEYSTORE_PASSWORD`, `ANDROID_KEY_PASSWORD`, `PLAY_SERVICE_ACCOUNT_JSON`, and `OFF_APP_PASSWORD`, the password of the app's global Open Food Facts account, baked into release builds only; local builds may point at the Open Food Facts staging server with a staging account the developer creates once in a browser, since `off`/`off` is only that server's HTTP gate, and with no password at all the Contribute button is hidden. None of these ever appear in git. The data repo needs no secrets beyond the workflow's own token; its build workflow runs on schedule and on pushes to main, never on pull requests.
+- GitHub Actions encrypted secrets: `ANDROID_KEYSTORE_BASE64`, `ANDROID_KEYSTORE_PASSWORD`, `ANDROID_KEY_PASSWORD`, and `PLAY_SERVICE_ACCOUNT_JSON`. No API key or password goes into the app itself: anything in the bundle is extractable (see the USDA and Open Food Facts notes). None of these ever appear in git. The data repo needs no secrets beyond the workflow's own token; its build workflow runs on schedule and on pushes to main, never on pull requests.
 - Enroll in Play App Signing so the keystore held in CI is only the upload key. If it leaks, it can be reset in the Play Console without losing the app identity.
 - Build on the free ubuntu runner: `npx expo prebuild --platform android`, then `./gradlew bundleRelease` with the signing config read from environment variables. No Expo cloud build, whose free tier is limited.
 - Upload the AAB with r0adkll/upload-google-play to the `internal` track. Promotion to production is a manual click in the Play Console.
@@ -250,7 +250,6 @@ expo-camera `onBarcodeScanned` for EAN-13, EAN-8, UPC-A, and UPC-E. Normalize to
 | Restore file has newer schema | Refuse with a clear message |
 | Import parse error | Abort transaction, show row number and reason |
 | Barcode miss | Custom food prefilled with barcode; optional Open Food Facts lookup |
-| Open Food Facts contribution fails | Keep the custom food, show the returned message, the button stays for a retry |
 | Health permission denied | Hide burned calories |
 
 ## Testing
@@ -288,7 +287,7 @@ expo-camera `onBarcodeScanned` for EAN-13, EAN-8, UPC-A, and UPC-E. Normalize to
 - Plausibility: fiber and alcohol are in the energy check so alcohol and bran survive.
 - Nutrients: store everything the source provides, display a ~30 panel by default. Canonical key is the USDA nutrient number.
 - Exercise: read burned calories from the platform health store; no exercise logging UI.
-- Contribution: in-app to Open Food Facts, no account with us. The git delta layer is for curators only.
+- Contribution: on the Open Food Facts site under the person's own account, no account with us and no credentials in the app. The git delta layer is for curators only.
 - Distribution: GitHub Release only, since 2026-09-25 (R2 dropped: it needs a payment method, and its unset secrets blocked every publish), jittered daily checks, URLs pinned to the build.
 - First launch: a starter foods file inside the app binary and a one-tap Open Food Facts lookup on scan misses, so nothing waits on the big download. The full file is a resumable download on request.
 - Two repos: `food-data` and `calorie-tracker`.

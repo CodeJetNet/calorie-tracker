@@ -1,27 +1,22 @@
-import { CameraView, useCameraPermissions } from 'expo-camera';
 import * as Crypto from 'expo-crypto';
 import { useLocalSearchParams, useRouter } from 'expo-router';
-import { useEffect, useRef, useState } from 'react';
-import { View } from 'react-native';
-import { CAN_CONTRIBUTE, contribute } from '../../src/contribute';
+import { useEffect, useState } from 'react';
+import { Linking, View } from 'react-native';
 import { useDb } from '../../src/db/provider';
 import { addDays, today } from '../../src/dates';
-import { customFood } from '../../src/diary/customFoods';
 import { entry as loadEntry, type Entry } from '../../src/diary/entries';
 import { logEntry, relogEntry } from '../../src/diary/log';
 import { DEFAULT_MEALS, getJson } from '../../src/diary/settings';
-import { bySource } from '../../src/foods/db';
 import { resolve, type Resolved } from '../../src/foods/resolve';
 import { BY_ID, PANEL, scale, TOP } from '../../src/nutrients';
 import { Chips } from '../../src/ui/Chips';
-import { Btn, Card, Field, IconBtn, Line, row, Screen, Section, Txt } from '../../src/ui/kit';
+import { Btn, Field, IconBtn, Line, row, Screen, Section, Txt } from '../../src/ui/kit';
 import { fmt } from '../../src/ui/NutrientBar';
-import { radius } from '../../src/ui/theme';
 
 export default function FoodDetail() {
   const { diary, foods } = useDb();
   const router = useRouter();
-  const p = useLocalSearchParams<{ ref: string; day?: string; meal?: string; entry?: string; relog?: string; pick?: string; photo?: string }>();   // photo: the label picture a custom food was read from
+  const p = useLocalSearchParams<{ ref: string; day?: string; meal?: string; entry?: string; relog?: string; pick?: string }>();
   const [r, setR] = useState<Resolved | null>(null);
   const [existing, setExisting] = useState<Entry | null>(null);   // edit mode
   const [missing, setMissing] = useState(false);
@@ -31,11 +26,6 @@ export default function FoodDetail() {
   const [opt, setOpt] = useState(0);
   const [qtyText, setQtyText] = useState('1');
   const [more, setMore] = useState(false);
-  const [contrib, setContrib] = useState<'idle' | 'ask' | 'photo' | 'sending' | 'done'>('idle');
-  const [contribMsg, setContribMsg] = useState('');
-  const [photo, setPhoto] = useState<string | null>(p.photo ?? null);
-  const [camPerm, requestCamPerm] = useCameraPermissions();
-  const cam = useRef<CameraView>(null);
 
   useEffect(() => {
     (async () => {
@@ -65,7 +55,6 @@ export default function FoodDetail() {
   const n = r ? scale(r.per100, grams) : {};
   const extra = Object.keys(n).filter(k => !PANEL.some(x => x.id === k));
   const valid = r && qty > 0 && (p.pick || meal);
-  const canContribute = CAN_CONTRIBUTE && !!r?.barcode && kind === 'custom';
 
   const save = async () => {
     if (!r || !option) return;
@@ -82,27 +71,8 @@ export default function FoodDetail() {
     }
   };
 
-  // Open Food Facts contribution: custom foods post directly; database foods open a prefilled custom copy to correct first.
-  const suggest = async () => {
-    const f = foods && (await bySource(foods, id, sourceId));
-    if (!f) return;
-    const prefill = JSON.stringify({ barcode: f.barcode, name: f.name, brand: f.brand, serving_size: f.serving_size, serving_unit: f.serving_unit, serving_desc: f.serving_desc, nutrients: f.per100 });
-    router.push({ pathname: '/custom/[id]', params: { id: 'new', prefill, day: p.day, meal: p.meal } });
-  };
-  const addPhoto = async () => {
-    if (camPerm?.granted || (await requestCamPerm()).granted) setContrib('photo');
-  };
-  const snap = async () => {
-    const pic = await cam.current?.takePictureAsync({ quality: 0.5 }).catch(() => null);
-    if (pic) setPhoto(pic.uri);
-    setContrib('ask');
-  };
-  const send = async () => {
-    setContrib('sending'); setContribMsg('');
-    const f = await customFood(diary, id);
-    const msg = f?.barcode ? await contribute(diary, { ...f, barcode: f.barcode }, photo ?? undefined).catch(e => (e as Error).message) : 'This food has no barcode.';
-    if (msg) { setContribMsg(msg); setContrib('ask'); } else setContrib('done');
-  };
+  // Contributions happen on Open Food Facts' own site, under the person's own account: the app holds no credentials.
+  const openOff = () => Linking.openURL(`https://world.openfoodfacts.org/cgi/product.pl?type=edit&code=${r?.barcode}`);
 
   const line = (k: string) => <Line key={k} label={BY_ID[k]?.name ?? k} value={`${fmt(n[k] ?? 0)} ${BY_ID[k]?.unit ?? ''}`} />;
 
@@ -139,23 +109,7 @@ export default function FoodDetail() {
             {more && [...PANEL.filter(x => !TOP.includes(x.id)).map(x => x.id), ...extra].map(line)}
           </Section>
           <Btn kind="primary" title={p.pick ? 'Add to recipe' : existing ? 'Save' : `Add to ${meal}`} onPress={save} disabled={!valid} />
-          {CAN_CONTRIBUTE && r.barcode && kind === 'foods' && <Btn kind="plain" title="Suggest a correction" onPress={suggest} />}
-          {canContribute && contrib === 'idle' && <Btn title="Contribute to Open Food Facts" onPress={() => setContrib('ask')} />}
-          {canContribute && contrib === 'done' && <Txt>Thanks. It will be in this app's database after the next weekly build.</Txt>}
-          {canContribute && contrib !== 'idle' && contrib !== 'done' && (
-            <Card>
-              <Txt>This sends the name, brand, serving and nutrition values for this barcode to Open Food Facts, the public food database, together with a random id for this install. Nothing else about you is sent.</Txt>
-              {contrib === 'photo' ? (
-                <>
-                  <CameraView ref={cam} style={{ height: 320, borderRadius: radius.control, overflow: 'hidden' }} />
-                  <Btn kind="primary" title="Take photo" onPress={snap} />
-                </>
-              ) : photo ? <Txt v="muted">Photo added.</Txt> : <Btn title="Add a photo of the nutrition label" onPress={addPhoto} />}
-              <Btn kind="primary" title={contrib === 'sending' ? 'Sending...' : 'Send'} onPress={send} disabled={contrib !== 'ask'} />
-              {!!contribMsg && <Txt v="error">{contribMsg}</Txt>}
-              <Btn kind="plain" title="Cancel" onPress={() => { setContrib('idle'); setPhoto(p.photo ?? null); setContribMsg(''); }} disabled={contrib === 'sending'} />
-            </Card>
-          )}
+          {r.barcode && kind !== 'recipe' && <Btn kind="plain" title={kind === 'custom' ? 'Add to Open Food Facts' : 'Suggest a correction on Open Food Facts'} onPress={openOff} />}
         </>
       )}
     </Screen>

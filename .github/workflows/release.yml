@@ -31,7 +31,6 @@ jobs:
           ANDROID_KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
           ANDROID_KEY_ALIAS: upload
           ANDROID_KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}
-          OFF_APP_PASSWORD: ${{ secrets.OFF_APP_PASSWORD }}     # read by app.config.ts when the JS bundle is built
         run: ./gradlew bundleRelease assembleRelease --no-daemon
       - name: Upload to Play internal track
         uses: r0adkll/upload-google-play@v1
@@ -73,12 +72,9 @@ jobs:
           mkdir -p "$PROFILES"
           printf '%s' "$PROFILE_B64" | base64 -d > "$PROFILES/appstore.mobileprovision" && test -s "$PROFILES/appstore.mobileprovision"
       - run: npx expo prebuild --platform ios --no-install
-        env:
-          OFF_APP_PASSWORD: ${{ secrets.OFF_APP_PASSWORD }}
       - run: cd ios && pod install
       - name: Archive and export
         env:
-          OFF_APP_PASSWORD: ${{ secrets.OFF_APP_PASSWORD }}     # read by app.config.ts when the JS bundle is built
           APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
         run: |
           cd ios

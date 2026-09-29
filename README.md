@@ -13,7 +13,7 @@ No ads, no accounts, no servers, no subscription. The maintainer pays the store 
 
 ## Contribute food data
 
-Foods come from Open Food Facts. Add or fix a product from inside the app with "Contribute to Open Food Facts" on a custom food with a barcode, or "Suggest a correction" on a database food, or edit it at <https://world.openfoodfacts.org>. When a scanned barcode is missing everywhere, the app can read the nutrition label from a photo, on the phone, so only the name needs typing. The next weekly build picks it up; your custom food covers the gap until then. There is no account with us.
+Foods come from Open Food Facts. A food with a barcode has a button that opens its page on <https://world.openfoodfacts.org>, where you add or fix it with your own Open Food Facts account; the app itself holds no credentials and sends nothing. When a scanned barcode is missing everywhere, the app can read the nutrition label from a photo, on the phone, so only the name needs typing. The next weekly build picks it up; your custom food covers the gap until then. There is no account with us.
 
 ## Build locally
 
@@ -28,12 +28,6 @@ npx expo run:android
 Colours, type, glass surfaces, components and icon assets are specified in the [design system](docs/design/design-system.md); read it before changing anything visual.
 
 CI runs `npm run typecheck`, `npm test` and `sh scripts/check-nutrients.sh` (which checks `src/nutrients.json` against food-data) on every pull request; run them locally the same way.
-
-The Contribute button is hidden unless the build has an Open Food Facts password. To test contributions without touching the real database, create an account on the staging server at <https://world.openfoodfacts.net> once and build with:
-
-```sh
-OFF_APP_STAGING=1 OFF_APP_USER=<staging account> OFF_APP_PASSWORD=<its password> npx expo run:android
-```
 
 Release builds are made by the `release` workflow on `v*` tags: prebuild, sign with the upload keystore from repository secrets, upload the AAB to the Play internal track, and attach the APK to the GitHub release.
 

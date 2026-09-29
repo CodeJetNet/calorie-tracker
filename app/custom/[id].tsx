@@ -14,7 +14,7 @@ import { Btn, Field, row, Screen, Section, Txt } from '../../src/ui/kit';
 export default function CustomFoodEditor() {
   const { diary } = useDb();
   const router = useRouter();
-  const p = useLocalSearchParams<{ id: string; barcode?: string; prefill?: string; day?: string; meal?: string; pick?: string; basis?: string; photo?: string }>();   // prefill: JSON of a food to correct or a label read; photo: that label's picture
+  const p = useLocalSearchParams<{ id: string; barcode?: string; prefill?: string; day?: string; meal?: string; pick?: string; basis?: string; photo?: string }>();   // prefill: JSON of a food to correct or a label read; photo: set when it came from a label photo
   const isNew = p.id === 'new';
   const [id] = useState(() => (isNew ? Crypto.randomUUID() : p.id));
   const [f, setF] = useState({ name: '', brand: '', barcode: p.barcode ?? '', serving_size: '', serving_desc: '' });
@@ -51,7 +51,7 @@ export default function CustomFoodEditor() {
       serving_size: size > 0 ? size : null, serving_unit: size > 0 ? unit : null, serving_desc: f.serving_desc.trim() || null,
       nutrients: perServing ? toPer100(typed, basis) : typed,
     });
-    router.replace({ pathname: '/food/[ref]', params: { ref: `custom:${id}`, day: p.day, meal: p.meal, pick: p.pick, photo: p.photo } });
+    router.replace({ pathname: '/food/[ref]', params: { ref: `custom:${id}`, day: p.day, meal: p.meal, pick: p.pick } });
   };
   const del = async () => {
     if (!confirm) return setConfirm(true);
