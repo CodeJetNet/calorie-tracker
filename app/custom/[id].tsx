@@ -6,6 +6,7 @@ import { useDb } from '../../src/db/provider';
 import { customFood, deleteCustomFood, upsertCustomFood, type CustomFood } from '../../src/diary/customFoods';
 import { toPer100 } from '../../src/foods/per100';
 import { normalize } from '../../src/gtin';
+import { energyMismatch } from '../../src/label/parse';
 import { BY_ID, PANEL, TOP, type Nutrients } from '../../src/nutrients';
 import { Chips } from '../../src/ui/Chips';
 import { Btn, Field, row, Screen, Section, Txt } from '../../src/ui/kit';
@@ -13,12 +14,12 @@ import { Btn, Field, row, Screen, Section, Txt } from '../../src/ui/kit';
 export default function CustomFoodEditor() {
   const { diary } = useDb();
   const router = useRouter();
-  const p = useLocalSearchParams<{ id: string; barcode?: string; prefill?: string; day?: string; meal?: string; pick?: string }>();   // prefill: JSON of a food to correct
+  const p = useLocalSearchParams<{ id: string; barcode?: string; prefill?: string; day?: string; meal?: string; pick?: string; basis?: string; photo?: string }>();   // prefill: JSON of a food to correct or a label read; photo: that label's picture
   const isNew = p.id === 'new';
   const [id] = useState(() => (isNew ? Crypto.randomUUID() : p.id));
   const [f, setF] = useState({ name: '', brand: '', barcode: p.barcode ?? '', serving_size: '', serving_desc: '' });
   const [unit, setUnit] = useState<'g' | 'ml'>('g');
-  const [perServing, setPerServing] = useState(false);
+  const [perServing, setPerServing] = useState(p.basis === 'serving');
   const [vals, setVals] = useState<Record<string, string>>({});
   const [more, setMore] = useState(false);
   const [confirm, setConfirm] = useState(false);
@@ -31,6 +32,7 @@ export default function CustomFoodEditor() {
       setF({ name: src.name ?? '', brand: src.brand ?? '', barcode: src.barcode ?? p.barcode ?? '', serving_size: src.serving_size ? String(src.serving_size) : '', serving_desc: src.serving_desc ?? '' });
       setUnit(src.serving_unit ?? 'g');
       setVals(Object.fromEntries(Object.entries(src.nutrients ?? {}).map(([k, v]) => [k, String(v)])));
+      if (p.photo && Object.keys(src.nutrients ?? {}).some(k => !TOP.includes(k))) setMore(true);   // every read value in view to check
     })();
   }, []);
 
@@ -40,15 +42,16 @@ export default function CustomFoodEditor() {
   const badBarcode = !!f.barcode.trim() && !barcode;
   const canSave = !!f.name.trim() && basis > 0 && !badBarcode;
 
+  const typed: Nutrients = {};
+  for (const [k, v] of Object.entries(vals)) { const n = Number(v.replace(',', '.')); if (v.trim() && Number.isFinite(n)) typed[k] = n; }
+
   const save = async () => {
-    const raw: Nutrients = {};
-    for (const [k, v] of Object.entries(vals)) { const n = Number(v.replace(',', '.')); if (v.trim() && Number.isFinite(n)) raw[k] = n; }
     await upsertCustomFood(diary, {
       id, name: f.name.trim(), brand: f.brand.trim() || null, barcode,
       serving_size: size > 0 ? size : null, serving_unit: size > 0 ? unit : null, serving_desc: f.serving_desc.trim() || null,
-      nutrients: perServing ? toPer100(raw, basis) : raw,
+      nutrients: perServing ? toPer100(typed, basis) : typed,
     });
-    router.replace({ pathname: '/food/[ref]', params: { ref: `custom:${id}`, day: p.day, meal: p.meal, pick: p.pick } });
+    router.replace({ pathname: '/food/[ref]', params: { ref: `custom:${id}`, day: p.day, meal: p.meal, pick: p.pick, photo: p.photo } });
   };
   const del = async () => {
     if (!confirm) return setConfirm(true);
@@ -75,6 +78,7 @@ export default function CustomFoodEditor() {
   return (
     <Screen title={isNew ? 'New custom food' : 'Edit custom food'}>
       <Section title="Food">
+        {p.photo && <Txt v="muted">Read from your label photo. Check each value against the package, and add a name.</Txt>}
         {field('name', 'Name')}
         {field('brand', 'Brand')}
         {field('barcode', 'Barcode', { keyboardType: 'number-pad' })}
@@ -89,10 +93,12 @@ export default function CustomFoodEditor() {
         <Txt v="muted">Values are per</Txt>
         <Chips options={['serving', `100 ${unit}`]} value={perServing ? 'serving' : `100 ${unit}`} onChange={v => setPerServing(v === 'serving')} />
         {perServing && !(size > 0) && <Txt v="error">Enter the serving size first</Txt>}
+        {energyMismatch(typed) && <Txt v="error">Calories don't match the protein, carbs and fat. Check calories against the label.</Txt>}
         {TOP.map(nutrient)}
         <Btn kind="plain" small title={more ? 'Show less' : 'All nutrients'} onPress={() => setMore(!more)} />
         {more && PANEL.filter(n => !TOP.includes(n.id)).map(n => nutrient(n.id))}
       </Section>
+      {isNew && !p.photo && <Btn kind="tinted" title="Read from nutrition label" onPress={() => router.replace({ pathname: '/label', params: { barcode: f.barcode, day: p.day, meal: p.meal } })} />}
       <Btn kind="primary" title="Save" onPress={save} disabled={!canSave} />
       {!isNew && <Btn kind={confirm ? 'danger' : 'destructive'} title={confirm ? 'Tap again to delete' : 'Delete'} onPress={del} />}
     </Screen>

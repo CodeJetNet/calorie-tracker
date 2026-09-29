@@ -21,7 +21,7 @@ import { radius } from '../../src/ui/theme';
 export default function FoodDetail() {
   const { diary, foods } = useDb();
   const router = useRouter();
-  const p = useLocalSearchParams<{ ref: string; day?: string; meal?: string; entry?: string; relog?: string; pick?: string }>();
+  const p = useLocalSearchParams<{ ref: string; day?: string; meal?: string; entry?: string; relog?: string; pick?: string; photo?: string }>();   // photo: the label picture a custom food was read from
   const [r, setR] = useState<Resolved | null>(null);
   const [existing, setExisting] = useState<Entry | null>(null);   // edit mode
   const [missing, setMissing] = useState(false);
@@ -33,7 +33,7 @@ export default function FoodDetail() {
   const [more, setMore] = useState(false);
   const [contrib, setContrib] = useState<'idle' | 'ask' | 'photo' | 'sending' | 'done'>('idle');
   const [contribMsg, setContribMsg] = useState('');
-  const [photo, setPhoto] = useState<string | null>(null);
+  const [photo, setPhoto] = useState<string | null>(p.photo ?? null);
   const [camPerm, requestCamPerm] = useCameraPermissions();
   const cam = useRef<CameraView>(null);
 
@@ -153,7 +153,7 @@ export default function FoodDetail() {
               ) : photo ? <Txt v="muted">Photo added.</Txt> : <Btn title="Add a photo of the nutrition label" onPress={addPhoto} />}
               <Btn kind="primary" title={contrib === 'sending' ? 'Sending...' : 'Send'} onPress={send} disabled={contrib !== 'ask'} />
               {!!contribMsg && <Txt v="error">{contribMsg}</Txt>}
-              <Btn kind="plain" title="Cancel" onPress={() => { setContrib('idle'); setPhoto(null); setContribMsg(''); }} disabled={contrib === 'sending'} />
+              <Btn kind="plain" title="Cancel" onPress={() => { setContrib('idle'); setPhoto(p.photo ?? null); setContribMsg(''); }} disabled={contrib === 'sending'} />
             </Card>
           )}
         </>
