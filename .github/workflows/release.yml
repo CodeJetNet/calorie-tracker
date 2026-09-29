@@ -31,7 +31,6 @@ jobs:
           ANDROID_KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
           ANDROID_KEY_ALIAS: upload
           ANDROID_KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}
-          USDA_API_KEY: ${{ secrets.USDA_API_KEY }}
           OFF_APP_PASSWORD: ${{ secrets.OFF_APP_PASSWORD }}     # read by app.config.ts when the JS bundle is built
         run: ./gradlew bundleRelease assembleRelease --no-daemon
       - name: Upload to Play internal track
@@ -50,6 +49,7 @@ jobs:
           cp android/app/build/outputs/apk/release/app-release.apk "$APK"
           gh release create "$GITHUB_REF_NAME" "$APK" --generate-notes || gh release upload "$GITHUB_REF_NAME" "$APK" --clobber
   ios:
+    if: vars.IOS_ENABLED == 'true'   # set this repo variable once the Apple secrets below exist
     runs-on: macos-latest
     steps:
       - uses: actions/checkout@v4
@@ -74,12 +74,10 @@ jobs:
           printf '%s' "$PROFILE_B64" | base64 -d > "$PROFILES/appstore.mobileprovision" && test -s "$PROFILES/appstore.mobileprovision"
       - run: npx expo prebuild --platform ios --no-install
         env:
-          USDA_API_KEY: ${{ secrets.USDA_API_KEY }}
           OFF_APP_PASSWORD: ${{ secrets.OFF_APP_PASSWORD }}
       - run: cd ios && pod install
       - name: Archive and export
         env:
-          USDA_API_KEY: ${{ secrets.USDA_API_KEY }}
           OFF_APP_PASSWORD: ${{ secrets.OFF_APP_PASSWORD }}     # read by app.config.ts when the JS bundle is built
           APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
         run: |
