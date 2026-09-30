@@ -3,7 +3,7 @@ import { GlassView, isLiquidGlassAvailable } from 'expo-glass-effect';
 import { useRouter } from 'expo-router';
 import { SymbolView } from 'expo-symbols';
 import type { ReactNode } from 'react';
-import { Image, Pressable, ScrollView, StatusBar, Text, TextInput, View, type TextInputProps, type TextProps, type ViewProps } from 'react-native';
+import { Image, Platform, Pressable, ScrollView, StatusBar, Text, TextInput, useWindowDimensions, View, type TextInputProps, type TextProps, type ViewProps } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { backdrop, color, radius, shadow, type } from './theme';
 
@@ -40,9 +40,12 @@ const ICONS = {
 export type IconName = keyof typeof ICONS;
 /** Decorative: the control around it carries the label, so screen readers skip the glyph. */
 export function Icon({ name, size = 22, tint = color.text }: { name: IconName; size?: number; tint?: string }) {
+  // Android draws the symbol as a font glyph that scales with system text size and overflows its box; undo that so icons stay put.
+  const { fontScale } = useWindowDimensions();
+  const glyph = Platform.OS === 'android' ? size / fontScale : size;
   return (
     <View accessibilityElementsHidden importantForAccessibility="no-hide-descendants">
-      <SymbolView name={ICONS[name]} size={size} tintColor={tint} />
+      <SymbolView name={ICONS[name]} size={glyph} style={{ width: size, height: size }} tintColor={tint} />
     </View>
   );
 }
@@ -102,12 +105,12 @@ export function Section({ title, children }: { title: string; children: ReactNod
   );
 }
 
-/** A label with its value at the right edge: nutrition lines, settings rows. */
+/** A label with its value at the right edge: nutrition lines, settings rows. Large text drops the value to its own line. */
 export function Line({ label, value }: { label: string; value: string }) {
   return (
-    <View style={{ ...row, paddingVertical: 4 }}>
-      <Txt style={{ flex: 1 }}>{label}</Txt>
-      <Txt style={{ fontVariant: ['tabular-nums'] }}>{value}</Txt>
+    <View style={{ ...row, flexWrap: 'wrap', paddingVertical: 4 }}>
+      <Txt style={{ flexShrink: 1 }}>{label}</Txt>
+      <Txt style={{ marginLeft: 'auto', fontVariant: ['tabular-nums'] }}>{value}</Txt>
     </View>
   );
 }

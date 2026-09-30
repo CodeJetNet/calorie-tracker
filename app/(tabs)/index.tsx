@@ -1,6 +1,6 @@
 import { useFocusEffect, useRouter } from 'expo-router';
 import { useCallback, useEffect, useState } from 'react';
-import { AppState, Pressable, Text, View } from 'react-native';
+import { AppState, Pressable, Text, useWindowDimensions, View } from 'react-native';
 import { useDb } from '../../src/db/provider';
 import { addDays, today } from '../../src/dates';
 import { entriesForDay, type Entry } from '../../src/diary/entries';
@@ -19,6 +19,7 @@ const pretty = (day: string) => new Date(`${day}T12:00:00`).toLocaleDateString(u
 export default function Today() {
   const { diary } = useDb();
   const router = useRouter();
+  const { fontScale } = useWindowDimensions();   // large system text grows the ring and stacks the bars under it
   const [day, setDay] = useState(today());
   const [entries, setEntries] = useState<Entry[]>([]);
   const [targets, setTargets] = useState<Nutrients>({});
@@ -98,12 +99,12 @@ export default function Today() {
       {backupPending && <Banner kind="error" text="Backup failed. Retry from Settings." onPress={() => router.push('/settings')} />}
 
       <Card>
-        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 16 }}>
-          <Ring size={132} width={13} frac={energyGoal ? eaten / energyGoal : 0}>
+        <View style={{ flexDirection: 'row', flexWrap: 'wrap', alignItems: 'center', justifyContent: 'center', gap: 16 }}>
+          <Ring size={132 * Math.min(Math.max(fontScale, 1), 2)} width={13} frac={energyGoal ? eaten / energyGoal : 0}>
             <Txt v="title" style={{ fontSize: 28, fontVariant: ['tabular-nums'] }}>{fmt(eaten)}</Txt>
             <Txt v="muted">{energyGoal ? `of ${fmt(energyGoal)} kcal` : 'kcal'}</Txt>
           </Ring>
-          <View style={{ flex: 1, gap: 10 }}>
+          <View style={{ flexGrow: 1, flexBasis: 150 * fontScale, gap: 10 }}>
             {MAIN.filter(id => id !== ENERGY).map(id => <NutrientBar key={id} id={id} value={totals[id] ?? 0} goal={targets[id]} />)}
           </View>
         </View>
@@ -118,16 +119,16 @@ export default function Today() {
 
       {sections.map(([meal, es]) => (
         <Card key={meal} style={{ gap: 0 }}>
-          <View style={row}>
-            <View style={{ flex: 1 }}>
+          <View style={{ ...row, flexWrap: 'wrap' }}>
+            <View style={{ flexGrow: 1 }}>
               <Txt v="headline">{meal}</Txt>
               {es.length > 0 && <Txt v="muted">{fmt(sum(es.map(e => e.nutrients))[ENERGY] ?? 0)} kcal</Txt>}
             </View>
             {meal !== 'Other' && (
-              <>
+              <View style={{ flexDirection: 'row', gap: 8 }}>
                 <Btn small icon="add" title="Add" onPress={() => router.push({ pathname: '/search', params: { day, meal } })} />
                 <Btn small kind="plain" icon="scan" title="Scan" onPress={() => router.push({ pathname: '/scan', params: { day, meal } })} />
-              </>
+              </View>
             )}
           </View>
           {es.map((e, i) => (

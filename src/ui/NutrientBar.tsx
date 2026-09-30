@@ -12,9 +12,9 @@ export function NutrientBar({ id, value, goal }: { id: string; value: number; go
   const frac = goal ? Math.min(value / goal, 1) : 0;
   return (
     <View style={{ gap: 4 }}>
-      <View style={row}>
+      <View style={{ ...row, flexWrap: 'wrap' }}>
         <Txt v="muted" style={{ color: color.text }}>{n.name}</Txt>
-        <Txt v="muted" style={{ fontVariant: ['tabular-nums'] }}>{fmt(value)}{goal ? ` / ${fmt(goal)}` : ''} {n.unit}</Txt>
+        <Txt v="muted" style={{ marginLeft: 'auto', fontVariant: ['tabular-nums'] }}>{fmt(value)}{goal ? ` / ${fmt(goal)}` : ''} {n.unit}</Txt>
       </View>
       <View style={{ height: 8, backgroundColor: color.track, borderRadius: 4 }}>
         <View style={{ height: 8, width: `${frac * 100}%`, backgroundColor: frac >= 1 ? color.orange : color.green, borderRadius: 4 }} />
