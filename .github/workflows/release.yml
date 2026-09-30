@@ -32,13 +32,13 @@ jobs:
           ANDROID_KEY_ALIAS: upload
           ANDROID_KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}
         run: ./gradlew bundleRelease assembleRelease --no-daemon
-      - name: Upload to Play internal track
+      - name: Upload to the Play closed test (Release Track 1)
         uses: r0adkll/upload-google-play@v1
         with:
           serviceAccountJsonPlainText: ${{ secrets.PLAY_SERVICE_ACCOUNT_JSON }}
           packageName: com.codejetnet.calorietracker
           releaseFiles: android/app/build/outputs/bundle/release/app-release.aab
-          track: internal
+          track: Release Track 1
           status: completed
       - name: Attach APK to GitHub release
         env:
